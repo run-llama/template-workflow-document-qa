@@ -3,7 +3,6 @@ import os
 import tempfile
 
 import httpx
-from dotenv import load_dotenv
 from llama_cloud.types import RetrievalMode
 from llama_index.core import Settings
 from llama_index.core.chat_engine.types import BaseChatEngine, ChatMode
