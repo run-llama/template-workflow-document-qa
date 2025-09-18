@@ -1,8 +1,25 @@
 // This is a temporary chatbot component that is used to test the chatbot functionality.
 // LlamaIndex will replace it with better chatbot component.
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
-import { Send, Loader2, Bot, User, MessageSquare, Trash2, RefreshCw } from "lucide-react";
-import { Button, Input, ScrollArea, Card, CardContent, cn, useWorkflowTaskCreate, useWorkflowTask } from "@llamaindex/ui";
+import {
+  Send,
+  Loader2,
+  Bot,
+  User,
+  MessageSquare,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
+import {
+  Button,
+  Input,
+  ScrollArea,
+  Card,
+  CardContent,
+  cn,
+  useWorkflowTaskCreate,
+  useWorkflowTask,
+} from "@llamaindex/ui";
 import { AGENT_NAME } from "../libs/config";
 import { toHumanResponseRawEvent } from "@/libs/utils";
 
@@ -28,19 +45,27 @@ export default function ChatBot() {
 
   // Deployment + auth setup
   const deployment = AGENT_NAME || "document-qa";
-  const platformToken = (import.meta as any).env?.VITE_LLAMA_CLOUD_API_KEY as string | undefined;
-  const projectId = (import.meta as any).env?.VITE_LLAMA_DEPLOY_PROJECT_ID as string | undefined;
-  const defaultIndexName = (import.meta as any).env?.VITE_DEFAULT_INDEX_NAME || "document_qa_index";
-  const sessionIdRef = useRef<string>(`chat-${Math.random().toString(36).slice(2)}-${Date.now()}`);
+  const platformToken = (import.meta as any).env?.VITE_LLAMA_CLOUD_API_KEY as
+    | string
+    | undefined;
+  const projectId = (import.meta as any).env?.VITE_LLAMA_DEPLOY_PROJECT_ID as
+    | string
+    | undefined;
+  const defaultIndexName =
+    (import.meta as any).env?.VITE_DEFAULT_INDEX_NAME || "document_qa_index";
+  const sessionIdRef = useRef<string>(
+    `chat-${Math.random().toString(36).slice(2)}-${Date.now()}`,
+  );
 
   // UI text defaults
   const title = "AI Document Assistant";
   const placeholder = "Ask me anything about your documents...";
-  const welcomeMessage = "Welcome! 👋 Upload a document with the control above, then ask questions here.";
+  const welcomeMessage =
+    "Welcome! 👋 Upload a document with the control above, then ask questions here.";
 
   // Helper functions for message management
   const appendMessage = (role: Role, msg: string): void => {
-    setMessages(prev => {
+    setMessages((prev) => {
       const id = `${role}-stream-${Date.now()}`;
       const idx = prev.length;
       streamingMessageIndexRef.current = idx;
@@ -57,7 +82,7 @@ export default function ChatBot() {
   };
 
   const updateMessage = (index: number, message: string) => {
-    setMessages(prev => {
+    setMessages((prev) => {
       if (index < 0 || index >= prev.length) return prev;
       const copy = [...prev];
       const existing = copy[index];
@@ -73,7 +98,7 @@ export default function ChatBot() {
         id: "welcome",
         role: "assistant",
         content: welcomeMessage,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
       setMessages([welcomeMsg]);
     }
@@ -176,7 +201,7 @@ export default function ChatBot() {
       id: `user-${Date.now()}`,
       role: "user",
       content: trimmedInput,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     const newMessages = [...messages, userMessage];
@@ -202,11 +227,13 @@ export default function ChatBot() {
           ...getCommonHeaders(),
         },
         body: JSON.stringify({
-          event: JSON.stringify(toHumanResponseRawEvent(trimmedInput))
+          event: JSON.stringify(toHumanResponseRawEvent(trimmedInput)),
         }),
       });
       if (!postRes.ok) {
-        throw new Error(`Failed to send message: ${postRes.status} ${postRes.statusText}`);
+        throw new Error(
+          `Failed to send message: ${postRes.status} ${postRes.statusText}`,
+        );
       }
 
       // The assistant reply will be streamed by useWorkflowTask and appended incrementally
@@ -219,10 +246,10 @@ export default function ChatBot() {
         role: "assistant",
         content: `Sorry, I encountered an error: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
         timestamp: new Date(),
-        error: true
+        error: true,
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
       // Focus back on input
@@ -232,7 +259,7 @@ export default function ChatBot() {
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     // Submit on Enter (without Shift)
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
     }
@@ -244,20 +271,20 @@ export default function ChatBot() {
         id: "welcome",
         role: "assistant" as const,
         content: welcomeMessage,
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     ]);
     setInput("");
     inputRef.current?.focus();
   };
 
   const retryLastMessage = () => {
-    const lastUserMessage = messages.filter(m => m.role === "user").pop();
+    const lastUserMessage = messages.filter((m) => m.role === "user").pop();
     if (lastUserMessage) {
       // Remove the last assistant message if it was an error
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "assistant" && lastMessage.error) {
-        setMessages(prev => prev.slice(0, -1));
+        setMessages((prev) => prev.slice(0, -1));
       }
       setInput(lastUserMessage.content);
       inputRef.current?.focus();
@@ -265,19 +292,27 @@ export default function ChatBot() {
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg")}> 
+    <div
+      className={cn(
+        "flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg",
+      )}
+    >
       {/* Header */}
       <div className="px-4 py-3 border-b dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              {title}
+            </h3>
             {isLoading && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">Thinking...</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Thinking...
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {messages.some(m => m.error) && (
+            {messages.some((m) => m.error) && (
               <button
                 onClick={retryLastMessage}
                 className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
@@ -320,51 +355,63 @@ export default function ChatBot() {
                 key={message.id}
                 className={cn(
                   "flex gap-3",
-                  message.role === "user" ? "justify-end" : "justify-start"
+                  message.role === "user" ? "justify-end" : "justify-start",
                 )}
               >
                 {message.role !== "user" && (
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                    message.error
-                      ? "bg-red-100 dark:bg-red-900"
-                      : "bg-blue-100 dark:bg-blue-900"
-                  )}>
-                    <Bot className={cn(
-                      "w-5 h-5",
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                       message.error
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-blue-600 dark:text-blue-400"
-                    )} />
+                        ? "bg-red-100 dark:bg-red-900"
+                        : "bg-blue-100 dark:bg-blue-900",
+                    )}
+                  >
+                    <Bot
+                      className={cn(
+                        "w-5 h-5",
+                        message.error
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-blue-600 dark:text-blue-400",
+                      )}
+                    />
                   </div>
                 )}
-                <div className={cn(
-                  "max-w-[70%]",
-                  message.role === "user" ? "order-1" : "order-2"
-                )}>
-                  <Card className={cn(
-                    "py-0",
-                    message.role === "user"
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : message.error
-                      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                      : "bg-gray-50 dark:bg-gray-700"
-                  )}>
+                <div
+                  className={cn(
+                    "max-w-[70%]",
+                    message.role === "user" ? "order-1" : "order-2",
+                  )}
+                >
+                  <Card
+                    className={cn(
+                      "py-0",
+                      message.role === "user"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : message.error
+                          ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                          : "bg-gray-50 dark:bg-gray-700",
+                    )}
+                  >
                     <CardContent className="p-3">
-                      <p className={cn(
-                        "whitespace-pre-wrap text-sm",
-                        message.error && "text-red-700 dark:text-red-400"
-                      )}>
+                      <p
+                        className={cn(
+                          "whitespace-pre-wrap text-sm",
+                          message.error && "text-red-700 dark:text-red-400",
+                        )}
+                      >
                         {message.content}
                       </p>
-                      <p className={cn(
-                        "text-xs mt-1 opacity-70",
-                        message.role === "user"
-                          ? "text-blue-100"
-                          : message.error
-                          ? "text-red-500 dark:text-red-400"
-                          : "text-gray-500 dark:text-gray-400"
-                      )}>
+                      <p
+                        className={cn(
+                          "text-xs mt-1 opacity-70",
+                          message.role === "user"
+                            ? "text-blue-100"
+                            : message.error
+                              ? "text-red-500 dark:text-red-400"
+                              : "text-gray-500 dark:text-gray-400",
+                        )}
+                      >
                         {message.timestamp.toLocaleTimeString()}
                       </p>
                     </CardContent>
@@ -387,9 +434,18 @@ export default function ChatBot() {
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="flex gap-1">
-                        <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                        <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                        <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                        <span
+                          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                          style={{ animationDelay: "0ms" }}
+                        ></span>
+                        <span
+                          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                          style={{ animationDelay: "150ms" }}
+                        ></span>
+                        <span
+                          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                          style={{ animationDelay: "300ms" }}
+                        ></span>
                       </div>
                     </div>
                   </CardContent>
@@ -420,7 +476,7 @@ export default function ChatBot() {
             size="icon"
             title="Send message"
           >
-            {(!canSend || isLoading) ? (
+            {!canSend || isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
