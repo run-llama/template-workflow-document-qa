@@ -20,12 +20,14 @@ export default function Home() {
           <div className="flex mb-4">
             <WorkflowTrigger
               workflowName="upload"
-              inputFields={[{
-                key: "index_name",
-                label: "Index Name",
-                placeholder: "e.g. document_qa_index",
-                required: true,
-              }]}
+              inputFields={[
+                {
+                  key: "index_name",
+                  label: "Index Name",
+                  placeholder: "e.g. document_qa_index",
+                  required: true,
+                },
+              ]}
               customWorkflowInput={(files, fieldValues) => {
                 return {
                   file_id: files[0].fileId,
