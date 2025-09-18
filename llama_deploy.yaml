@@ -1,8 +1,0 @@
-env_files:
-  - ".env"
-llama_cloud: true
-workflows:
-  upload: "document-qa.qa_workflows:DocumentUploadWorkflow"
-  chat: "document-qa.qa_workflows:ChatWorkflow"
-ui:
-  directory: ui
