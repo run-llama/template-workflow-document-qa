@@ -32,6 +32,7 @@ from .clients import (
 
 logger = logging.getLogger(__name__)
 
+
 class FileEvent(StartEvent):
     file_id: str
     index_name: str
