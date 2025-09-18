@@ -10,15 +10,15 @@ project_name:
 
 project_title:
   type: str
-  default: "{{ (project_name.replace('-', ' '))[:1] | upper ~ (project_name.replace('-', ' '))[1:] }}"
-  when: false
+  help: What is the title of your project? This will be used in the UI Title Bar.
+  default: "{{ project_name.replace('-', ' ').title() }}"
 
 # computed variables
 project_name_snake:
   type: str
   default: "{{ project_name.replace('-', '_') }}"
   when: false
-  
+
 _exclude:
   - "test-proj"
   - ".git"
