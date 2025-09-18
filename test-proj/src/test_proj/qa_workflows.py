@@ -3,7 +3,6 @@ import os
 import tempfile
 
 import httpx
-from dotenv import load_dotenv
 from llama_cloud.types import RetrievalMode
 from llama_index.core import Settings
 from llama_index.core.chat_engine.types import BaseChatEngine, ChatMode
@@ -30,11 +29,8 @@ from .clients import (
     LLAMA_CLOUD_PROJECT_ID,
 )
 
-load_dotenv()
-
 
 logger = logging.getLogger(__name__)
-
 
 class FileEvent(StartEvent):
     file_id: str
