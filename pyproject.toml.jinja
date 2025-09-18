@@ -45,5 +45,5 @@ llama_cloud = true
 directory = "./ui"
 
 [tool.llamadeploy.workflows]
-upload = "test_proj.qa_workflows:upload"
-chat = "test_proj.qa_workflows:chat"
+upload = "{{ project_name_snake }}.qa_workflows:upload"
+chat = "{{ project_name_snake }}.qa_workflows:chat"
