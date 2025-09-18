@@ -1,10 +1,16 @@
 import logging
 import os
+import tempfile
 
 import httpx
+from dotenv import load_dotenv
 from llama_cloud.types import RetrievalMode
-import tempfile
+from llama_index.core import Settings
 from llama_index.core.chat_engine.types import BaseChatEngine, ChatMode
+from llama_index.core.memory import ChatMemoryBuffer
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
+from llama_cloud_services import LlamaCloudIndex
 from workflows import Workflow, step, Context
 from workflows.events import (
     StartEvent,
@@ -15,16 +21,6 @@ from workflows.events import (
 )
 from workflows.retry_policy import ConstantDelayRetryPolicy
 
-from llama_cloud_services import LlamaCloudIndex
-from llama_index.core import Settings
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.core.memory import ChatMemoryBuffer
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from .clients import (
     LLAMA_CLOUD_API_KEY,
     LLAMA_CLOUD_BASE_URL,
@@ -33,6 +29,8 @@ from .clients import (
     get_llama_parse_client,
     LLAMA_CLOUD_PROJECT_ID,
 )
+
+load_dotenv()
 
 
 logger = logging.getLogger(__name__)
