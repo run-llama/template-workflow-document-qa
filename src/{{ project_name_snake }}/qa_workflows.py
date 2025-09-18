@@ -30,8 +30,6 @@ from .clients import (
     LLAMA_CLOUD_PROJECT_ID,
 )
 
-load_dotenv()
-
 
 logger = logging.getLogger(__name__)
 
