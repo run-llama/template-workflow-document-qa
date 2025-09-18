@@ -21,6 +21,10 @@ from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.memory import ChatMemoryBuffer
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from .clients import (
     LLAMA_CLOUD_API_KEY,
     LLAMA_CLOUD_BASE_URL,
