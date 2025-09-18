@@ -1,6 +1,6 @@
 import ChatBot from "../components/ChatBot";
 import { WorkflowTrigger } from "@llamaindex/ui";
-import { APP_TITLE } from "../libs/config";
+import { APP_TITLE, INDEX_NAME } from "../libs/config";
 
 export default function Home() {
   return (
@@ -20,18 +20,10 @@ export default function Home() {
           <div className="flex mb-4">
             <WorkflowTrigger
               workflowName="upload"
-              inputFields={[
-                {
-                  key: "index_name",
-                  label: "Index Name",
-                  placeholder: "e.g. document_qa_index",
-                  required: true,
-                },
-              ]}
               customWorkflowInput={(files, fieldValues) => {
                 return {
                   file_id: files[0].fileId,
-                  index_name: fieldValues.index_name,
+                  index_name: INDEX_NAME,
                 };
               }}
             />

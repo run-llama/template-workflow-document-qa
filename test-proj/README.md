@@ -9,8 +9,6 @@ This application uses LlamaDeploy. For more information see [the docs](https://d
 
 1. install `uv` if you haven't `brew install uv`
 2. run `uvx llamactl serve`
-3. Visit http://localhost:4501/docs and see workflow APIs
-
 
 # Organization
 

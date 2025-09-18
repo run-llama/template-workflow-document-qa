@@ -1,6 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: '2405947'
+_commit: c9f43f6
 _src_path: .
-llama_org_id: asdf
-llama_project_id: asdf
 project_name: test-proj
+project_title: Test Proj

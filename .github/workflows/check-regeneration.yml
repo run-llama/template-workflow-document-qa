@@ -62,7 +62,6 @@ jobs:
     - name: Activate pnpm version
       working-directory: test-proj/ui
       run: corepack prepare --activate
-
       
     - name: Run UI checks
       run: pnpm run all-check
