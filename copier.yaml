@@ -1,0 +1,40 @@
+# questions
+project_name:
+  type: str
+  help: What is your project name? This will be used as an identifier. Must only contain letters, numbers, or dashes.
+  default: "{{ _folder_name | regex_replace('[^a-zA-Z0-9-]', '-') | regex_replace('-+', '-') | regex_replace('^-|-$', '') }}"
+  validator: |-
+    {% if not project_name.replace("-", "").isalnum() %}
+        Project name must contain only letters, numbers, and dashes
+    {% endif %}
+
+llama_project_id:
+  type: str
+  help: What is your Llama Cloud project ID?
+  default: ""
+  required: true
+
+llama_org_id:
+  type: str
+  help: What is your Llama Cloud organization ID?
+  default: ""
+  required: true
+
+# computed variables
+project_name_snake:
+  type: str
+  default: "{{ project_name.replace('-', '_') }}"
+  when: false
+
+project_title:
+  type: str
+  default: "{{ (project_name.replace('-', ' '))[:1] | upper ~ (project_name.replace('-', ' '))[1:] }}"
+  when: false
+
+_exclude:
+  - "test-proj"
+  - ".git"
+  - ".github"
+  - "copier"
+  - "CONTRIBUTING.md"
+  - "copier.yaml"
