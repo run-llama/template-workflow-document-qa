@@ -8,27 +8,15 @@ project_name:
         Project name must contain only letters, numbers, and dashes
     {% endif %}
 
-llama_project_id:
+project_title:
   type: str
-  help: What is your Llama Cloud project ID?
-  default: ""
-  required: true
-
-llama_org_id:
-  type: str
-  help: What is your Llama Cloud organization ID?
-  default: ""
-  required: true
+  help: What is the title of your project? This will be used in the UI Title Bar.
+  default: "{{ project_name.replace('-', ' ').title() }}"
 
 # computed variables
 project_name_snake:
   type: str
   default: "{{ project_name.replace('-', '_') }}"
-  when: false
-
-project_title:
-  type: str
-  default: "{{ (project_name.replace('-', ' '))[:1] | upper ~ (project_name.replace('-', ' '))[1:] }}"
   when: false
 
 _exclude:
