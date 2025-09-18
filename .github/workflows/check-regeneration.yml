@@ -41,7 +41,9 @@ jobs:
       uses: astral-sh/setup-uv@v3
       
     - name: Run Python checks
-      run: uv run hatch run all-check
+      # Passing an explicit empty filter avoids Click's sentinel default in newer releases
+      # breaking Hatch's JSON parsing.
+      run: uv run hatch run --filter '{}' all-check
       working-directory: test-proj
       
   check-ui:
@@ -62,7 +64,6 @@ jobs:
     - name: Activate pnpm version
       working-directory: test-proj/ui
       run: corepack prepare --activate
-
       
     - name: Run UI checks
       run: pnpm run all-check
