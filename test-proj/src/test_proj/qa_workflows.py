@@ -1,6 +1,5 @@
 import logging
 import os
-import uuid
 
 import httpx
 from llama_cloud.types import RetrievalMode
@@ -23,7 +22,6 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.memory import ChatMemoryBuffer
 
 from .clients import (
-    INDEX_NAME,
     LLAMA_CLOUD_API_KEY,
     LLAMA_CLOUD_BASE_URL,
     get_custom_client,
@@ -334,6 +332,7 @@ class ChatWorkflow(Workflow):
             return StopEvent(
                 result={"success": False, "error": f"Error processing query: {str(e)}"}
             )
+
 
 upload = DocumentUploadWorkflow(timeout=None)
 chat = ChatWorkflow(timeout=None)

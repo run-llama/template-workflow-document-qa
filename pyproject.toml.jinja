@@ -19,7 +19,22 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = []
+dev = [
+    "hatch>=1.14.1",
+    "pytest>=8.4.2",
+    "ruff>=0.13.0",
+    "ty>=0.0.1a20",
+]
+
+[tool.hatch.envs.default.scripts]
+"format" = "ruff format ."
+"format-check" = "ruff format --check ."
+"lint" = "ruff check --fix ."
+"lint-check" = ["ruff check ."]
+typecheck = "ty check src"
+test = "pytest"
+"all-check" = ["format-check", "lint-check", "test"]
+"all-fix" = ["format", "lint", "test"]
 
 [tool.llamadeploy]
 env-files = [".env"]
