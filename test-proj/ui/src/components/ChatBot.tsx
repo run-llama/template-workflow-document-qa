@@ -17,8 +17,8 @@ import {
   Card,
   CardContent,
   cn,
-  useWorkflowTaskCreate,
-  useWorkflowTask,
+  useWorkflowRun,
+  useWorkflowHandler,
 } from "@llamaindex/ui";
 import { AGENT_NAME } from "../libs/config";
 import { toHumanResponseRawEvent } from "@/libs/utils";
@@ -32,7 +32,7 @@ interface Message {
   error?: boolean;
 }
 export default function ChatBot() {
-  const { createTask } = useWorkflowTaskCreate();
+  const { runWorkflow } = useWorkflowRun();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -108,7 +108,7 @@ export default function ChatBot() {
   useEffect(() => {
     (async () => {
       if (!handlerId) {
-        const handler = await createTask("chat", {
+        const handler = await runWorkflow("chat", {
           index_name: defaultIndexName,
           session_id: sessionIdRef.current,
         });
@@ -118,7 +118,7 @@ export default function ChatBot() {
   }, []);
 
   // Subscribe to task/events using hook (auto stream when handler exists)
-  const { events } = useWorkflowTask(handlerId ?? "", Boolean(handlerId));
+  const { events } = useWorkflowHandler(handlerId ?? "", Boolean(handlerId));
 
   // Process streamed events into messages
   useEffect(() => {
@@ -180,7 +180,7 @@ export default function ChatBot() {
 
   const startChatIfNeeded = async (): Promise<string> => {
     if (handlerId) return handlerId;
-    const handler = await createTask("chat", {
+    const handler = await runWorkflow("chat", {
       index_name: defaultIndexName,
       session_id: sessionIdRef.current,
     });

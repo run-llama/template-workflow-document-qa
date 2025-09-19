@@ -14,7 +14,7 @@
     "all-fix": "pnpm i && pnpm run lint && pnpm run format && pnpm run build"
   },
   "dependencies": {
-    "@llamaindex/ui": "^1.0.2",
+    "@llamaindex/ui": "^2.1.1",
     "@llamaindex/workflows-client": "^1.2.0",
     "@radix-ui/themes": "^3.2.1",
     "llama-cloud-services": "^0.3.6",
