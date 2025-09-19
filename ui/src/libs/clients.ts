@@ -1,8 +1,8 @@
 import {
   ApiClients,
   cloudApiClient,
-  createWorkflowClient,
-  createWorkflowConfig,
+  createWorkflowsClient,
+  createWorkflowsConfig,
 } from "@llamaindex/ui";
 import { AGENT_NAME } from "./config";
 
@@ -22,8 +22,8 @@ cloudApiClient.setConfig({
   },
 });
 
-const workflowsClient = createWorkflowClient(
-  createWorkflowConfig({
+const workflowsClient = createWorkflowsClient(
+  createWorkflowsConfig({
     baseUrl: `/deployments/${AGENT_NAME}/`,
     headers: {
       ...(platformToken && { authorization: `Bearer ${platformToken}` }),
