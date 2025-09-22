@@ -1,13 +1,17 @@
+from __future__ import annotations
 import logging
 import os
 import tempfile
+from typing import Any, Literal
 
 import httpx
 from dotenv import load_dotenv
+from llama_cloud import ChatMessage
 from llama_cloud.types import RetrievalMode
 from llama_index.core import Settings
 from llama_index.core.chat_engine.types import BaseChatEngine, ChatMode
 from llama_index.core.memory import ChatMemoryBuffer
+from pydantic import BaseModel, Field
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_cloud_services import LlamaCloudIndex
@@ -164,12 +168,10 @@ class DocumentUploadWorkflow(Workflow):
             )
 
 
-class ChatResponseEvent(Event):
-    """Event emitted when chat engine generates a response"""
+class AppendChatMessage(Event):
+    """Event emitted when chat engine appends a message to the conversation history"""
 
-    response: str
-    sources: list
-    query: str
+    message: ConversationMessage
 
 
 class ChatDeltaEvent(Event):
@@ -178,7 +180,25 @@ class ChatDeltaEvent(Event):
     delta: str
 
 
-class ChatWorkflow(Workflow):
+class ChatWorkflowState(BaseModel):
+    conversation_history: list[ChatMessage] = Field(default_factory=list)
+    session_id: str | None = None
+    index_name: str | None = None
+
+
+class SourceMessage(BaseModel):
+    text: str
+    score: float
+    metadata: dict[str, Any]
+
+
+class ConversationMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+    sources: list[SourceMessage] = Field(default_factory=list)
+
+
+class ChatWorkflow(Workflow[ChatWorkflowState]):
     """Workflow to handle continuous chat queries against indexed documents"""
 
     def __init__(self, **kwargs):
@@ -188,7 +208,9 @@ class ChatWorkflow(Workflow):
         ] = {}  # Cache chat engines per index
 
     @step
-    async def initialize_chat(self, ev: ChatEvent, ctx: Context) -> InputRequiredEvent:
+    async def initialize_chat(
+        self, ev: ChatEvent, ctx: Context[ChatWorkflowState]
+    ) -> InputRequiredEvent:
         """Initialize the chat session and request first input"""
         try:
             logger.info(f"Initializing chat {ev.index_name}")
@@ -198,7 +220,8 @@ class ChatWorkflow(Workflow):
             # Store session info in context
             await ctx.store.set("index_name", index_name)
             await ctx.store.set("session_id", session_id)
-            await ctx.store.set("conversation_history", [])
+            if ctx.store.get("conversation_history", None) is None:
+                await ctx.store.set("conversation_history", [])
 
             # Create cache key for chat engine
             cache_key = f"{index_name}_{session_id}"
@@ -216,7 +239,12 @@ class ChatWorkflow(Workflow):
                 )
 
                 # Create chat engine with memory
-                memory = ChatMemoryBuffer.from_defaults(token_limit=3900)
+                memory = ChatMemoryBuffer.from_defaults(
+                    token_limit=3900,
+                    chat_history=await ctx.store.get(
+                        "conversation_history", default=[]
+                    ),
+                )
                 self.chat_engines[cache_key] = index.as_chat_engine(
                     chat_mode=ChatMode.CONTEXT,
                     memory=memory,
@@ -230,10 +258,20 @@ class ChatWorkflow(Workflow):
                     retriever_mode=RetrievalMode.CHUNKS,
                 )
 
+            history = await ctx.store.get("conversation_history", default=[])
+            if len(history) == 0:
+                ctx.write_event_to_stream(
+                    ConversationMessage(
+                        role="assistant",
+                        text="Chat initialized. Ask a question (or type 'exit' to quit): ",
+                    )
+                )
+            else:
+                for item in history:
+                    item: ConversationMessage = item
+                    ctx.write_event_to_stream(item)
             # Request first user input
-            return InputRequiredEvent(
-                prefix="Chat initialized. Ask a question (or type 'exit' to quit): "
-            )
+            return InputRequiredEvent(prefix="[waiting for user message]")
 
         except Exception as e:
             return StopEvent(
@@ -251,6 +289,10 @@ class ChatWorkflow(Workflow):
         try:
             logger.info(f"Processing user response {ev.response}")
             user_input = ev.response.strip()
+            with ctx.store.edit_state() as state:
+                messages = state.get("conversation_history", default=[])
+                messages.append(ConversationMessage(role="user", text=user_input))
+                state.set("conversation_history", messages)
 
             logger.info(f"User input: {user_input}")
 
@@ -287,48 +329,30 @@ class ChatWorkflow(Workflow):
 
             # Extract source nodes for citations
             sources = []
-            if hasattr(stream_response, "source_nodes"):
+            if stream_response.source_nodes:
                 for node in stream_response.source_nodes:
                     sources.append(
-                        {
-                            "text": node.text[:200] + "..."
-                            if len(node.text) > 200
+                        SourceMessage(
+                            text=node.text[:197] + "..."
+                            if len(node.text) >= 200
                             else node.text,
-                            "score": node.score if hasattr(node, "score") else None,
-                            "metadata": node.metadata
-                            if hasattr(node, "metadata")
-                            else {},
-                        }
+                            score=node.score,
+                            metadata=node.metadata,
+                        )
                     )
 
             # Update conversation history
-            conversation_history = await ctx.store.get(
-                "conversation_history", default=[]
+            response = ConversationMessage(
+                role="assistant", text=full_text.strip(), sources=sources
             )
-            conversation_history.append(
-                {
-                    "query": user_input,
-                    "response": full_text.strip()
-                    if full_text
-                    else str(stream_response),
-                    "sources": sources,
-                }
-            )
-            await ctx.store.set("conversation_history", conversation_history)
+            with ctx.store.edit_state() as state:
+                messages = state.get("conversation_history", default=[])
+                messages.append(response)
+                state.set("conversation_history", messages)
 
             # After streaming completes, emit a summary response event to stream for frontend/main printing
-            ctx.write_event_to_stream(
-                ChatResponseEvent(
-                    response=full_text.strip() if full_text else str(stream_response),
-                    sources=sources,
-                    query=user_input,
-                )
-            )
-
-            # Prompt for next input
-            return InputRequiredEvent(
-                prefix="\nAsk another question (or type 'exit' to quit): "
-            )
+            ctx.write_event_to_stream(AppendChatMessage(message=response))
+            return InputRequiredEvent(prefix="[waiting for user message]")
 
         except Exception as e:
             return StopEvent(
