@@ -166,6 +166,9 @@ export function useChatbot({
 interface AppendChatMessageData {
   message: ChatMessage;
 }
+interface ErrorEventData {
+  error: string;
+}
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
@@ -238,6 +241,22 @@ function toMessages(events: WorkflowEvent[]): Message[] {
         content: content.message.text,
         timestamp: new Date(content.message.timestamp),
         isPartial: false,
+      });
+    } else if (type.endsWith(".ErrorEvent")) {
+      if (
+        lastMessage &&
+        lastMessage.isPartial &&
+        lastMessage.role === "assistant"
+      ) {
+        messages.pop();
+      }
+      const content = ev.data as unknown as ErrorEventData;
+      messages.push({
+        role: "assistant",
+        content: content.error,
+        timestamp: new Date(),
+        isPartial: false,
+        error: true,
       });
     }
   }

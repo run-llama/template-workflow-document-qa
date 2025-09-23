@@ -172,6 +172,12 @@ class QueryConversationHistoryEvent(HumanResponseEvent):
     pass
 
 
+class ErrorEvent(Event):
+    """Event emitted when an error occurs"""
+
+    error: str
+
+
 class ChatWorkflowState(BaseModel):
     index_name: str | None = None
     conversation_history: list[ConversationMessage] = Field(default_factory=list)
@@ -219,7 +225,7 @@ class ChatWorkflow(Workflow):
     @step
     async def initialize_chat(
         self, ev: ChatEvent, ctx: Context[ChatWorkflowState]
-    ) -> InputRequiredEvent | StopEvent:
+    ) -> InputRequiredEvent | StopEvent | None:
         """Initialize the chat session and request first input"""
         try:
             logger.info(f"Initializing chat {ev.index_name}")
@@ -236,17 +242,14 @@ class ChatWorkflow(Workflow):
             if ev.conversation_history:
                 async with ctx.store.edit_state() as state:
                     state.conversation_history.extend(ev.conversation_history)
-            # Request first user input
-            return InputRequiredEvent()
 
         except Exception as e:
             logger.error(f"Error initializing chat: {str(e)}", exc_info=True)
-            return StopEvent(
-                result={
-                    "success": False,
-                    "error": f"Failed to initialize chat: {str(e)}",
-                }
+            ctx.write_event_to_stream(
+                ErrorEvent(error=f"Failed to initialize chat: {str(e)}")
             )
+        return InputRequiredEvent()
+
 
     @step
     async def get_conversation_history(
@@ -260,7 +263,7 @@ class ChatWorkflow(Workflow):
     @step
     async def process_user_response(
         self, ev: HumanResponseEvent, ctx: Context[ChatWorkflowState]
-    ) -> InputRequiredEvent | HumanResponseEvent | StopEvent | None:
+    ) -> InputRequiredEvent | HumanResponseEvent | None:
         """Process user input and generate response"""
         try:
             logger.info(f"Processing user response {ev.response}")
@@ -326,13 +329,11 @@ class ChatWorkflow(Workflow):
                         assistant_response,
                     ]
                 )
-            return InputRequiredEvent()
 
         except Exception as e:
             logger.error(f"Error processing query: {str(e)}", exc_info=True)
-            return StopEvent(
-                result={"success": False, "error": f"Error processing query: {str(e)}"}
-            )
+            ctx.write_event_to_stream(ErrorEvent(error=str(e)))
+        return InputRequiredEvent()
 
 
 upload = DocumentUploadWorkflow(timeout=None)
