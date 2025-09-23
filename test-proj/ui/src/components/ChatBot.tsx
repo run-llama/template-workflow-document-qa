@@ -1,19 +1,8 @@
 // This is a temporary chatbot component that is used to test the chatbot functionality.
 // LlamaIndex will replace it with better chatbot component.
 import { useChatbot } from "@/libs/useChatbot";
-import {
-  Button,
-  cn,
-  ScrollArea,
-  Textarea,
-} from "@llamaindex/ui";
-import {
-  Bot,
-  Loader2,
-  RefreshCw,
-  Send,
-  User,
-} from "lucide-react";
+import { Button, cn, ScrollArea, Textarea } from "@llamaindex/ui";
+import { Bot, Loader2, RefreshCw, Send, User } from "lucide-react";
 import { FormEvent, KeyboardEvent, useEffect, useRef } from "react";
 
 export default function ChatBot({
@@ -48,7 +37,7 @@ export default function ChatBot({
   // Reset textarea height when input is cleared
   useEffect(() => {
     if (!chatbot.input && inputRef.current) {
-      inputRef.current.style.height = '48px'; // Reset to initial height
+      inputRef.current.style.height = "48px"; // Reset to initial height
     }
   }, [chatbot.input]);
 
@@ -67,8 +56,8 @@ export default function ChatBot({
   };
 
   const adjustTextareaHeight = (textarea: HTMLTextAreaElement) => {
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px'; // 128px = max-h-32
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + "px"; // 128px = max-h-32
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -97,124 +86,127 @@ export default function ChatBot({
       {/* Messages */}
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-6">
-        {chatbot.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full min-h-[400px]">
-            <div className="text-center">
-              <Bot className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-              <p className="text-lg text-foreground mb-2">
-                Welcome! 👋 Upload a document with the control above, then ask questions here.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Start by uploading a document to begin your conversation
-              </p>
+          {chatbot.messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full min-h-[400px]">
+              <div className="text-center">
+                <Bot className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
+                <p className="text-lg text-foreground mb-2">
+                  Welcome! 👋 Upload a document with the control above, then ask
+                  questions here.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Start by uploading a document to begin your conversation
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {chatbot.messages.map((message, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex gap-4",
-                  message.role === "user" ? "justify-end" : "justify-start",
-                )}
-              >
-                {message.role !== "user" && (
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1",
-                      message.error
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-primary/10 text-primary",
-                    )}
-                  >
-                    <Bot className="w-5 h-5" />
-                  </div>
-                )}
+          ) : (
+            <div className="space-y-6">
+              {chatbot.messages.map((message, i) => (
                 <div
+                  key={i}
                   className={cn(
-                    "max-w-[75%]",
-                    message.role === "user" ? "order-1" : "order-2",
+                    "flex gap-4",
+                    message.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
-                  <div
-                    className={cn(
-                      "rounded-2xl px-4 py-3",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : message.error
-                          ? "bg-destructive/5 border border-destructive/20"
-                          : "bg-muted",
-                    )}
-                  >
-                    {message.isPartial && !message.content ? (
-                      <LoadingDots />
-                    ) : (
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {message.content}
-                      </p>
-                    )}
-                    <p
+                  {message.role !== "user" && (
+                    <div
                       className={cn(
-                        "text-xs mt-2 opacity-60",
-                        message.role === "user"
-                          ? "text-primary-foreground"
-                          : message.error
-                            ? "text-destructive"
-                            : "text-muted-foreground",
+                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1",
+                        message.error
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-primary/10 text-primary",
                       )}
                     >
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
+                      <Bot className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[75%]",
+                      message.role === "user" ? "order-1" : "order-2",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "rounded-2xl px-4 py-3",
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : message.error
+                            ? "bg-destructive/5 border border-destructive/20"
+                            : "bg-muted",
+                      )}
+                    >
+                      {message.isPartial && !message.content ? (
+                        <div className="m-2">
+                          <LoadingDots />
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                          {message.content}
+                        </p>
+                      )}
+                      <p
+                        className={cn(
+                          "text-xs mt-2 opacity-60",
+                          message.role === "user"
+                            ? "text-primary-foreground"
+                            : message.error
+                              ? "text-destructive"
+                              : "text-muted-foreground",
+                        )}
+                      >
+                        {message.timestamp.toLocaleTimeString()}
+                      </p>
+                    </div>
                   </div>
+                  {message.role === "user" && (
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 order-2 mt-1">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
-                {message.role === "user" && (
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 order-2 mt-1">
-                    <User className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </div>
       </ScrollArea>
 
       {/* Input */}
       <div className="border-t bg-background">
         <div className="max-w-4xl mx-auto p-6">
-        <form onSubmit={handleSubmit} className="flex gap-3">
-          <Textarea
-            ref={inputRef}
-            value={chatbot.input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={chatbot.isLoading}
-            className="flex-1 min-h-12 max-h-32 rounded-xl border-2 focus:border-primary resize-none overflow-hidden"
-            autoFocus
-            style={{ height: '48px' }} // Initial height (min-h-12)
-          />
-          <Button
-            type="submit"
-            disabled={
-              !chatbot.canSend || chatbot.isLoading || !chatbot.input.trim()
-            }
-            size="icon"
-            title="Send message"
-            className="h-12 w-12 rounded-xl"
-          >
-            {!chatbot.canSend || chatbot.isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </Button>
-        </form>
-        <p className="text-xs text-muted-foreground mt-3 text-center">
-          Press Enter to send • Shift+Enter for new line
-        </p>
+          <form onSubmit={handleSubmit} className="flex gap-3">
+            <Textarea
+              ref={inputRef}
+              value={chatbot.input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={chatbot.isLoading}
+              className="flex-1 min-h-12 max-h-32 rounded-xl border-2 focus:border-primary resize-none overflow-hidden"
+              autoFocus
+              style={{ height: "48px" }} // Initial height (min-h-12)
+            />
+            <Button
+              type="submit"
+              disabled={
+                !chatbot.canSend || chatbot.isLoading || !chatbot.input.trim()
+              }
+              size="icon"
+              title="Send message"
+              className="h-12 w-12 rounded-xl"
+            >
+              {!chatbot.canSend || chatbot.isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </Button>
+          </form>
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Press Enter to send • Shift+Enter for new line
+          </p>
         </div>
       </div>
     </div>

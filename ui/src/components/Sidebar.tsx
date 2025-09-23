@@ -131,9 +131,7 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
           <>
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="text-sm text-muted-foreground">
-                  Loading...
-                </div>
+                <div className="text-sm text-muted-foreground">Loading...</div>
               </div>
             ) : chats.length === 0 ? (
               <div className="flex items-center justify-center py-8">
@@ -165,7 +163,7 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
                         "ml-2 p-1 rounded transition-colors",
                         selectedChatId === chat.handlerId
                           ? "text-sidebar-primary-foreground/70 hover:text-sidebar-primary-foreground hover:bg-sidebar-primary-foreground/10"
-                          : "text-muted-foreground hover:text-destructive"
+                          : "text-muted-foreground hover:text-destructive",
                       )}
                       aria-label="Delete chat"
                     >
