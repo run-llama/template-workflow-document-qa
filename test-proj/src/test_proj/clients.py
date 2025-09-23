@@ -4,6 +4,7 @@ import httpx
 
 from llama_cloud.client import AsyncLlamaCloud
 from llama_cloud_services import LlamaCloudIndex, LlamaParse
+from llama_cloud_services.parse import ResultType
 
 # deployed agents may infer their name from the deployment name
 # Note: Make sure that an agent deployment with this name actually exists
@@ -46,7 +47,7 @@ def get_llama_parse_client() -> LlamaParse:
         adaptive_long_table=True,
         outlined_table_extraction=True,
         output_tables_as_HTML=True,
-        result_type="markdown",
+        result_type=ResultType.MD,
         api_key=LLAMA_CLOUD_API_KEY,
         project_id=LLAMA_CLOUD_PROJECT_ID,
         custom_client=get_base_cloud_client(),

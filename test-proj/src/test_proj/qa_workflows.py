@@ -150,10 +150,8 @@ class DocumentUploadWorkflow(Workflow):
             )
 
         except Exception as e:
-            logger.error(e.stack_trace)
-            return StopEvent(
-                result={"success": False, "error": str(e), "stack_trace": e.stack_trace}
-            )
+            logger.error(f"Error parsing document {ev.file_id}: {e}", exc_info=True)
+            return StopEvent(result={"success": False, "error": str(e)})
 
 
 class AppendChatMessage(Event):
@@ -221,7 +219,7 @@ class ChatWorkflow(Workflow):
     @step
     async def initialize_chat(
         self, ev: ChatEvent, ctx: Context[ChatWorkflowState]
-    ) -> InputRequiredEvent:
+    ) -> InputRequiredEvent | StopEvent:
         """Initialize the chat session and request first input"""
         try:
             logger.info(f"Initializing chat {ev.index_name}")
@@ -239,7 +237,7 @@ class ChatWorkflow(Workflow):
                 async with ctx.store.edit_state() as state:
                     state.conversation_history.extend(ev.conversation_history)
             # Request first user input
-            return InputRequiredEvent(prefix="[waiting for user message]")
+            return InputRequiredEvent()
 
         except Exception as e:
             logger.error(f"Error initializing chat: {str(e)}", exc_info=True)
@@ -271,6 +269,8 @@ class ChatWorkflow(Workflow):
             initial_state = await ctx.store.get_state()
             conversation_history = initial_state.conversation_history
             index_name = initial_state.index_name
+            if not index_name:
+                raise ValueError("Index name not found in context")
 
             logger.info(f"User input: {user_input}")
 
@@ -287,23 +287,6 @@ class ChatWorkflow(Workflow):
 
             chat_engine = get_chat_engine(index_name)
 
-            # Process query with chat engine (streaming)
-            async def _fake_stream_chat() -> AsyncGenerator[str, None]:
-                for token in ["Hel", "lo, ", "how ", "are ", "you?"]:
-                    yield token
-                    await asyncio.sleep(0.1)
-
-            async def _fake_chat() -> StreamingAgentChatResponse:
-                class MockStreamResponse:
-                    def __init__(self):
-                        self.source_nodes = []
-
-                    def async_response_gen(self):
-                        return _fake_stream_chat()
-
-                return MockStreamResponse()
-
-            # stream_response = await _fake_chat()
             stream_response = await chat_engine.astream_chat(
                 user_input, chat_history=initial_state.chat_messages()
             )
@@ -313,7 +296,9 @@ class ChatWorkflow(Workflow):
             async for token in stream_response.async_response_gen():
                 full_text += token
                 ctx.write_event_to_stream(ChatDeltaEvent(delta=token))
-                await asyncio.sleep(0) # Temp workaround. Some sort of bug in the server drops events without flushing the event loop
+                await asyncio.sleep(
+                    0
+                )  # Temp workaround. Some sort of bug in the server drops events without flushing the event loop
 
             # Extract source nodes for citations
             sources = []
@@ -324,7 +309,7 @@ class ChatWorkflow(Workflow):
                             text=node.text[:197] + "..."
                             if len(node.text) >= 200
                             else node.text,
-                            score=node.score,
+                            score=float(node.score) if node.score else 0.0,
                             metadata=node.metadata,
                         )
                     )
@@ -341,7 +326,7 @@ class ChatWorkflow(Workflow):
                         assistant_response,
                     ]
                 )
-            return InputRequiredEvent(prefix="[waiting for user message]")
+            return InputRequiredEvent()
 
         except Exception as e:
             logger.error(f"Error processing query: {str(e)}", exc_info=True)
