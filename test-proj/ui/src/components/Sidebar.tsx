@@ -48,24 +48,24 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
   return (
     <div
       className={cn(
-        "flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 sm:w-[300px]",
+        "flex flex-col bg-sidebar border-r border-sidebar-border w-[280px]",
         className,
       )}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-4 py-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="text-sm font-medium text-sidebar-foreground">
             Chats
           </h3>
           <Button
             size="sm"
             variant="ghost"
             onClick={createNewChat}
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 hover:bg-sidebar-accent"
             title="New Chat"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 text-sidebar-foreground" />
           </Button>
         </div>
       </div>
@@ -74,37 +74,42 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
       <ScrollArea className="flex-1">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               Loading...
             </div>
           </div>
         ) : chats.length === 0 ? (
           <div className="flex items-center justify-center py-8">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               No chats yet
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="p-2 space-y-1">
             {chats.map((chat) => (
               <div
                 key={chat.handlerId}
                 className={cn(
-                  "flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors",
+                  "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-sidebar-accent transition-colors",
                   selectedChatId === chat.handlerId
-                    ? "bg-blue-50 dark:bg-blue-900/20"
-                    : "",
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground",
                 )}
                 onClick={() => handleChatSelect(chat)}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-900 dark:text-white truncate">
+                  <div className="text-sm truncate">
                     {formatTimestamp(chat.timestamp)}
                   </div>
                 </div>
                 <button
                   onClick={(e) => handleDeleteChat(e, chat.handlerId)}
-                  className="ml-2 p-1 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                  className={cn(
+                    "ml-2 p-1 rounded transition-colors",
+                    selectedChatId === chat.handlerId
+                      ? "text-sidebar-primary-foreground/70 hover:text-sidebar-primary-foreground hover:bg-sidebar-primary-foreground/10"
+                      : "text-muted-foreground hover:text-destructive"
+                  )}
                   aria-label="Delete chat"
                 >
                   <X className="w-4 h-4" />
