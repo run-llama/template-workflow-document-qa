@@ -156,17 +156,15 @@ export function useChatHistory(): UseChatHistory {
         );
         if (remainingChats.length > 0) {
           setSelectedChatHandlerId(remainingChats[0].handlerId);
+          setChatCounter((prev) => prev + 1);
         } else {
           setSelectedChatHandlerId(null);
+          setChatCounter((prev) => prev + 1);
         }
       }
     } catch (error) {
       console.error("Failed to delete chat from database:", error);
     }
-  };
-
-  const getChats = (): ChatHistory[] => {
-    return chatHistory;
   };
 
   const createNewChat = (): void => {

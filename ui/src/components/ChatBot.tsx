@@ -3,16 +3,13 @@
 import { useChatbot } from "@/libs/useChatbot";
 import {
   Button,
-  Card,
-  CardContent,
   cn,
-  Input,
   ScrollArea,
+  Textarea,
 } from "@llamaindex/ui";
 import {
   Bot,
   Loader2,
-  MessageSquare,
   RefreshCw,
   Send,
   User,
@@ -26,7 +23,7 @@ export default function ChatBot({
   handlerId?: string;
   onHandlerCreated?: (handlerId: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatbot = useChatbot({
     handlerId,
@@ -48,140 +45,132 @@ export default function ChatBot({
     scrollToBottom();
   }, [chatbot.messages]);
 
+  // Reset textarea height when input is cleared
+  useEffect(() => {
+    if (!chatbot.input && inputRef.current) {
+      inputRef.current.style.height = '48px'; // Reset to initial height
+    }
+  }, [chatbot.input]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     await chatbot.submit();
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Submit on Enter (without Shift)
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
     }
+    // Allow Shift+Enter to create new line (default behavior)
+  };
+
+  const adjustTextareaHeight = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px'; // 128px = max-h-32
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    chatbot.setInput(e.target.value);
+    adjustTextareaHeight(e.target);
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg",
-      )}
-    >
-      {/* Header */}
-      <div className="px-4 py-3 border-b dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              {title}
-            </h3>
-          </div>
-          <div className="flex items-center gap-2">
-            {chatbot.messages.some((m) => m.error) && (
-              <button
-                onClick={chatbot.retryLastMessage}
-                className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                title="Retry last message"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            )}
+    <div className="flex flex-col h-full bg-background">
+      {/* Simplified header - only show retry button when needed */}
+      {chatbot.messages.some((m) => m.error) && (
+        <div className="flex justify-center">
+          <div className="w-full max-w-4xl px-4 py-2 border-b bg-muted/30">
+            <button
+              onClick={chatbot.retryLastMessage}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              title="Retry last message"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry last message
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4 overflow-y-auto">
+      <ScrollArea className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto p-6">
         {chatbot.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full min-h-[300px]">
+          <div className="flex items-center justify-center h-full min-h-[400px]">
             <div className="text-center">
-              <Bot className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 mb-2">
-                No messages yet
+              <Bot className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
+              <p className="text-lg text-foreground mb-2">
+                Welcome! 👋 Upload a document with the control above, then ask questions here.
               </p>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Start a conversation!
+              <p className="text-sm text-muted-foreground">
+                Start by uploading a document to begin your conversation
               </p>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {chatbot.messages.map((message, i) => (
               <div
                 key={i}
                 className={cn(
-                  "flex gap-3",
+                  "flex gap-4",
                   message.role === "user" ? "justify-end" : "justify-start",
                 )}
               >
                 {message.role !== "user" && (
                   <div
                     className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                      "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1",
                       message.error
-                        ? "bg-red-100 dark:bg-red-900"
-                        : "bg-blue-100 dark:bg-blue-900",
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-primary/10 text-primary",
                     )}
                   >
-                    <Bot
-                      className={cn(
-                        "w-5 h-5",
-                        message.error
-                          ? "text-red-600 dark:text-red-400"
-                          : "text-blue-600 dark:text-blue-400",
-                      )}
-                    />
+                    <Bot className="w-5 h-5" />
                   </div>
                 )}
                 <div
                   className={cn(
-                    "max-w-[70%]",
+                    "max-w-[75%]",
                     message.role === "user" ? "order-1" : "order-2",
                   )}
                 >
-                  <Card
+                  <div
                     className={cn(
-                      "py-0",
+                      "rounded-2xl px-4 py-3",
                       message.role === "user"
-                        ? "bg-blue-600 text-white border-blue-600"
+                        ? "bg-primary text-primary-foreground"
                         : message.error
-                          ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                          : "bg-gray-50 dark:bg-gray-700",
+                          ? "bg-destructive/5 border border-destructive/20"
+                          : "bg-muted",
                     )}
                   >
-                    <CardContent className="p-3">
-                      {message.isPartial && !message.content ? (
-                        <LoadingDots />
-                      ) : (
-                        <>
-                          <p
-                            className={cn(
-                              "whitespace-pre-wrap text-sm",
-                              message.error && "text-red-700 dark:text-red-400",
-                            )}
-                          >
-                            {message.content}
-                          </p>
-                        </>
-                      )}
-                      <p
-                        className={cn(
-                          "text-xs mt-1 opacity-70",
-                          message.role === "user"
-                            ? "text-blue-100"
-                            : message.error
-                              ? "text-red-500 dark:text-red-400"
-                              : "text-gray-500 dark:text-gray-400",
-                        )}
-                      >
-                        {message.timestamp.toLocaleTimeString()}
+                    {message.isPartial && !message.content ? (
+                      <LoadingDots />
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {message.content}
                       </p>
-                    </CardContent>
-                  </Card>
+                    )}
+                    <p
+                      className={cn(
+                        "text-xs mt-2 opacity-60",
+                        message.role === "user"
+                          ? "text-primary-foreground"
+                          : message.error
+                            ? "text-destructive"
+                            : "text-muted-foreground",
+                      )}
+                    >
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
                 </div>
                 {message.role === "user" && (
-                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 order-2">
-                    <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 order-2 mt-1">
+                    <User className="w-5 h-5 text-muted-foreground" />
                   </div>
                 )}
               </div>
@@ -189,20 +178,23 @@ export default function ChatBot({
             <div ref={messagesEndRef} />
           </div>
         )}
+        </div>
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t dark:border-gray-700 p-4">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
+      <div className="border-t bg-background">
+        <div className="max-w-4xl mx-auto p-6">
+        <form onSubmit={handleSubmit} className="flex gap-3">
+          <Textarea
             ref={inputRef}
             value={chatbot.input}
-            onChange={(e) => chatbot.setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={chatbot.isLoading}
-            className="flex-1"
+            className="flex-1 min-h-12 max-h-32 rounded-xl border-2 focus:border-primary resize-none overflow-hidden"
             autoFocus
+            style={{ height: '48px' }} // Initial height (min-h-12)
           />
           <Button
             type="submit"
@@ -211,17 +203,19 @@ export default function ChatBot({
             }
             size="icon"
             title="Send message"
+            className="h-12 w-12 rounded-xl"
           >
             {!chatbot.canSend || chatbot.isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-5 h-5" />
             )}
           </Button>
         </form>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+        <p className="text-xs text-muted-foreground mt-3 text-center">
           Press Enter to send • Shift+Enter for new line
         </p>
+        </div>
       </div>
     </div>
   );
@@ -232,15 +226,15 @@ const LoadingDots = () => {
     <div className="flex items-center gap-2">
       <div className="flex gap-1">
         <span
-          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+          className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
           style={{ animationDelay: "0ms" }}
         ></span>
         <span
-          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+          className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
           style={{ animationDelay: "150ms" }}
         ></span>
         <span
-          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+          className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
           style={{ animationDelay: "300ms" }}
         ></span>
       </div>

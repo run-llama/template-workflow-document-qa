@@ -4,8 +4,8 @@ import { useChatbot } from "@/libs/useChatbot";
 import {
   Button,
   cn,
-  Input,
   ScrollArea,
+  Textarea,
 } from "@llamaindex/ui";
 import {
   Bot,
@@ -23,7 +23,7 @@ export default function ChatBot({
   handlerId?: string;
   onHandlerCreated?: (handlerId: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatbot = useChatbot({
     handlerId,
@@ -45,17 +45,35 @@ export default function ChatBot({
     scrollToBottom();
   }, [chatbot.messages]);
 
+  // Reset textarea height when input is cleared
+  useEffect(() => {
+    if (!chatbot.input && inputRef.current) {
+      inputRef.current.style.height = '48px'; // Reset to initial height
+    }
+  }, [chatbot.input]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     await chatbot.submit();
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Submit on Enter (without Shift)
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
     }
+    // Allow Shift+Enter to create new line (default behavior)
+  };
+
+  const adjustTextareaHeight = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px'; // 128px = max-h-32
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    chatbot.setInput(e.target.value);
+    adjustTextareaHeight(e.target);
   };
 
   return (
@@ -167,15 +185,16 @@ export default function ChatBot({
       <div className="border-t bg-background">
         <div className="max-w-4xl mx-auto p-6">
         <form onSubmit={handleSubmit} className="flex gap-3">
-          <Input
+          <Textarea
             ref={inputRef}
             value={chatbot.input}
-            onChange={(e) => chatbot.setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={chatbot.isLoading}
-            className="flex-1 h-12 rounded-xl border-2 focus:border-primary"
+            className="flex-1 min-h-12 max-h-32 rounded-xl border-2 focus:border-primary resize-none overflow-hidden"
             autoFocus
+            style={{ height: '48px' }} // Initial height (min-h-12)
           />
           <Button
             type="submit"
