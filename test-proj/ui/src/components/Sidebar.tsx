@@ -10,13 +10,12 @@ interface SidebarProps {
 export default function Sidebar({ className, chatHistory }: SidebarProps) {
   const {
     loading,
-    getChats,
+    chats,
     selectedChatId,
     setSelectedChatId,
     deleteChat,
     createNewChat,
   } = chatHistory;
-  const chats = getChats();
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);

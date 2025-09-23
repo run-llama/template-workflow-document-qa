@@ -10,7 +10,7 @@ export interface UseChatHistory {
   loading: boolean;
   addChat(handlerId: string): void;
   deleteChat(handlerId: string): void;
-  getChats(): ChatHistory[];
+  chats: ChatHistory[];
   selectedChatId: string | null;
   setSelectedChatId(handlerId: string): void;
   createNewChat(): void;
@@ -177,7 +177,7 @@ export function useChatHistory(): UseChatHistory {
   return {
     loading,
     addChat,
-    getChats,
+    chats: chatHistory,
     selectedChatId: selectedChatHandlerId,
     setSelectedChatId: setSelectedChatHandlerId,
     deleteChat,
