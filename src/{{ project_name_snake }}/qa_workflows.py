@@ -250,7 +250,6 @@ class ChatWorkflow(Workflow):
             )
         return InputRequiredEvent()
 
-
     @step
     async def get_conversation_history(
         self, ev: QueryConversationHistoryEvent, ctx: Context[ChatWorkflowState]
