@@ -1,5 +1,4 @@
 from __future__ import annotations
-from collections.abc import AsyncGenerator
 from datetime import datetime
 import logging
 import os
@@ -11,7 +10,6 @@ from llama_index.core import Settings
 from llama_index.core.chat_engine.types import (
     BaseChatEngine,
     ChatMode,
-    StreamingAgentChatResponse,
 )
 from llama_index.core.llms import ChatMessage
 import asyncio
