@@ -19,9 +19,9 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="flex gap-4">
+        <div className="flex gap-4 w-full items-stretch">
           <Sidebar />
-          <div>
+          <div className="w-full">
             <div className="flex mb-4">
               <WorkflowTrigger
                 workflowName="upload"
@@ -36,7 +36,13 @@ export default function Home() {
             <div>
               <div className="h-[700px]">
                 {!chatHistory.loading && (
-                  <ChatBot handlerId={chatHistory.selectedChat?.handlerId} />
+                  <ChatBot
+                    handlerId={chatHistory.selectedChatId ?? undefined}
+                    onHandlerCreated={handler => {
+                      chatHistory.addChat(handler);
+                      chatHistory.setSelectedChatId(handler);
+                    }}
+                  />
                 )}
               </div>
             </div>

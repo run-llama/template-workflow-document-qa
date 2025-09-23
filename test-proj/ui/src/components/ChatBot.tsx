@@ -17,12 +17,10 @@ import {
   Card,
   CardContent,
   cn,
-  useWorkflowRun,
   useWorkflowHandler,
   WorkflowEvent,
 } from "@llamaindex/ui";
 import { AGENT_NAME } from "../libs/config";
-import { toHumanResponseRawEvent } from "@/libs/utils";
 import { useChatWorkflowHandler } from "@/libs/chatWorkflowHandler";
 
 type Role = "user" | "assistant";
@@ -52,21 +50,21 @@ export default function ChatBot({
   const lastProcessedEventIndexRef = useRef<number>(0);
   const [canSend, setCanSend] = useState<boolean>(false);
   const streamingMessageIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (handlerId) {
+      setIsLoading(false); // whenever handler becomes defined and changed, stop loading
+      setCanSend(true);
+    }
+  }, [handlerId]);
 
   // Deployment + auth setup
-  const deployment = AGENT_NAME || "document-qa";
   const platformToken = (import.meta as any).env?.VITE_LLAMA_CLOUD_API_KEY as
     | string
     | undefined;
   const projectId = (import.meta as any).env?.VITE_LLAMA_DEPLOY_PROJECT_ID as
     | string
     | undefined;
-  const defaultIndexName =
-    (import.meta as any).env?.VITE_DEFAULT_INDEX_NAME || "document_qa_index";
-  const sessionIdRef = useRef<string>(
-    `chat-${Math.random().toString(36).slice(2)}-${Date.now()}`
-  );
-
+  
   // UI text defaults
   const title = "AI Document Assistant";
   const placeholder = "Ask me anything about your documents...";

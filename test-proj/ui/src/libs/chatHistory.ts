@@ -11,8 +11,8 @@ export interface UseChatHistory {
   addChat(handlerId: string): void;
   deleteChat(handlerId: string): void;
   getChats(): ChatHistory[];
-  selectedChat: ChatHistory | null;
-  setSelectedChat(chat: ChatHistory | null): void;
+  selectedChatId: string | null;
+  setSelectedChatId(handlerId: string): void;
 }
 
 const DB_NAME = "chat-history";
@@ -27,7 +27,9 @@ const STORE_NAME = "chats";
 export function useChatHistory(): UseChatHistory {
   const [loading, setLoading] = useState(true);
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
-  const [selectedChat, setSelectedChat] = useState<ChatHistory | null>(null);
+  const [selectedChatHandlerId, setSelectedChatHandlerId] = useState<
+    string | null
+  >(null);
   const [db, setDb] = useState<IDBPDatabase<unknown> | null>(null);
 
   // Initialize database
@@ -71,8 +73,8 @@ export function useChatHistory(): UseChatHistory {
         setChatHistory(chats);
 
         // Initialize selectedChat to the latest chat (first in sorted array)
-        if (chats.length > 0 && !selectedChat) {
-          setSelectedChat(chats[0]);
+        if (chats.length > 0 && !selectedChatHandlerId) {
+          setSelectedChatHandlerId(chats[0].handlerId);
         }
       } catch (error) {
         console.error("Failed to load chat history:", error);
@@ -124,8 +126,8 @@ export function useChatHistory(): UseChatHistory {
       ]);
 
       // Set as selected chat if it's the first chat or if no chat is currently selected
-      if (!selectedChat) {
-        setSelectedChat(chat);
+      if (!selectedChatHandlerId) {
+        setSelectedChatHandlerId(chat.handlerId);
       }
     } catch (error) {
       console.error("Failed to add chat to database:", error);
@@ -139,6 +141,21 @@ export function useChatHistory(): UseChatHistory {
       const transaction = db.transaction(STORE_NAME, "readwrite");
       const store = transaction.objectStore(STORE_NAME);
       await store.delete(handlerId);
+
+      // Update local state
+      setChatHistory((prev) => prev.filter((c) => c.handlerId !== handlerId));
+
+      // If the deleted chat was selected, select the next available chat or clear selection
+      if (selectedChatHandlerId === handlerId) {
+        const remainingChats = chatHistory.filter(
+          (c) => c.handlerId !== handlerId
+        );
+        if (remainingChats.length > 0) {
+          setSelectedChatHandlerId(remainingChats[0].handlerId);
+        } else {
+          setSelectedChatHandlerId(null);
+        }
+      }
     } catch (error) {
       console.error("Failed to delete chat from database:", error);
     }
@@ -152,8 +169,8 @@ export function useChatHistory(): UseChatHistory {
     loading,
     addChat,
     getChats,
-    selectedChat,
-    setSelectedChat,
+    selectedChatId: selectedChatHandlerId,
+    setSelectedChatId: setSelectedChatHandlerId,
     deleteChat,
   };
 }
