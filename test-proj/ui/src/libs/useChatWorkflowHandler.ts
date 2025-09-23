@@ -20,7 +20,7 @@ export function useChatWorkflowHandler({
   const create = useWorkflowRun();
   const isQueryingWorkflow = useRef(false);
   const [thisHandlerId, setThisHandlerId] = useState<string | undefined>(
-    handlerId
+    handlerId,
   );
   const workflowHandler = useWorkflowHandler(thisHandlerId ?? "", true);
   const store = useHandlerStore();

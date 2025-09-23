@@ -21,13 +21,13 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
     const date = new Date(timestamp);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    
-    const timeString = date.toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
+
+    const timeString = date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
-    
+
     if (isToday) {
       return timeString;
     } else {
@@ -49,7 +49,7 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
     <div
       className={cn(
         "flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 sm:w-[300px]",
-        className
+        className,
       )}
     >
       {/* Header */}
@@ -93,7 +93,7 @@ export default function Sidebar({ className, chatHistory }: SidebarProps) {
                   "flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors",
                   selectedChatId === chat.handlerId
                     ? "bg-blue-50 dark:bg-blue-900/20"
-                    : ""
+                    : "",
                 )}
                 onClick={() => handleChatSelect(chat)}
               >

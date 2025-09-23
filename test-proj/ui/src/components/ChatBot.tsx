@@ -64,7 +64,7 @@ export default function ChatBot({
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg"
+        "flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg",
       )}
     >
       {/* Header */}
@@ -111,7 +111,7 @@ export default function ChatBot({
                 key={i}
                 className={cn(
                   "flex gap-3",
-                  message.role === "user" ? "justify-end" : "justify-start"
+                  message.role === "user" ? "justify-end" : "justify-start",
                 )}
               >
                 {message.role !== "user" && (
@@ -120,7 +120,7 @@ export default function ChatBot({
                       "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                       message.error
                         ? "bg-red-100 dark:bg-red-900"
-                        : "bg-blue-100 dark:bg-blue-900"
+                        : "bg-blue-100 dark:bg-blue-900",
                     )}
                   >
                     <Bot
@@ -128,7 +128,7 @@ export default function ChatBot({
                         "w-5 h-5",
                         message.error
                           ? "text-red-600 dark:text-red-400"
-                          : "text-blue-600 dark:text-blue-400"
+                          : "text-blue-600 dark:text-blue-400",
                       )}
                     />
                   </div>
@@ -136,7 +136,7 @@ export default function ChatBot({
                 <div
                   className={cn(
                     "max-w-[70%]",
-                    message.role === "user" ? "order-1" : "order-2"
+                    message.role === "user" ? "order-1" : "order-2",
                   )}
                 >
                   <Card
@@ -146,7 +146,7 @@ export default function ChatBot({
                         ? "bg-blue-600 text-white border-blue-600"
                         : message.error
                           ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                          : "bg-gray-50 dark:bg-gray-700"
+                          : "bg-gray-50 dark:bg-gray-700",
                     )}
                   >
                     <CardContent className="p-3">
@@ -157,7 +157,7 @@ export default function ChatBot({
                           <p
                             className={cn(
                               "whitespace-pre-wrap text-sm",
-                              message.error && "text-red-700 dark:text-red-400"
+                              message.error && "text-red-700 dark:text-red-400",
                             )}
                           >
                             {message.content}
@@ -171,7 +171,7 @@ export default function ChatBot({
                             ? "text-blue-100"
                             : message.error
                               ? "text-red-500 dark:text-red-400"
-                              : "text-gray-500 dark:text-gray-400"
+                              : "text-gray-500 dark:text-gray-400",
                         )}
                       >
                         {message.timestamp.toLocaleTimeString()}

@@ -13,7 +13,7 @@ export default function Home() {
   const chatHistory = useChatHistory();
   const handlers = useWorkflowHandlerList("upload");
   const activeHandlers = handlers.handlers.filter(
-    (h) => h.status === "running" && h.workflowName === "upload"
+    (h) => h.status === "running" && h.workflowName === "upload",
   );
   const anyActiveHandlers = activeHandlers.length > 0;
   console.log("activeHandlers", activeHandlers);

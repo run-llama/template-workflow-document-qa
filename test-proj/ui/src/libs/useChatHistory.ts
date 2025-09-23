@@ -102,7 +102,7 @@ export function useChatHistory(): UseChatHistory {
       // Sort by timestamp descending (most recent first)
       return chats.sort(
         (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
       );
     } catch (error) {
       console.error("Failed to get chats from database:", error);
@@ -152,7 +152,7 @@ export function useChatHistory(): UseChatHistory {
       // If the deleted chat was selected, select the next available chat or clear selection
       if (selectedChatHandlerId === handlerId) {
         const remainingChats = chatHistory.filter(
-          (c) => c.handlerId !== handlerId
+          (c) => c.handlerId !== handlerId,
         );
         if (remainingChats.length > 0) {
           setSelectedChatHandlerId(remainingChats[0].handlerId);
@@ -171,7 +171,7 @@ export function useChatHistory(): UseChatHistory {
 
   const createNewChat = (): void => {
     setSelectedChatHandlerId(null);
-    setChatCounter(prev => prev + 1);
+    setChatCounter((prev) => prev + 1);
   };
 
   return {
