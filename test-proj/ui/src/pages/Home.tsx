@@ -1,9 +1,5 @@
 import ChatBot from "../components/ChatBot";
-import {
-  useWorkflowHandlerList,
-  WorkflowProgressBar,
-  WorkflowTrigger,
-} from "@llamaindex/ui";
+import { useWorkflowHandlerList, WorkflowTrigger } from "@llamaindex/ui";
 import { APP_TITLE, INDEX_NAME } from "../libs/config";
 import { useChatHistory } from "@/libs/useChatHistory";
 import Sidebar from "@/components/Sidebar";
@@ -16,6 +12,7 @@ export default function Home() {
     (h) => h.status === "running" && h.workflowName === "upload"
   );
   const anyActiveHandlers = activeHandlers.length > 0;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="flex h-screen">

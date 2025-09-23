@@ -62,20 +62,23 @@ export default function ChatBot({
     <div className="flex flex-col h-full bg-background">
       {/* Simplified header - only show retry button when needed */}
       {chatbot.messages.some((m) => m.error) && (
-        <div className="px-4 py-2 border-b bg-muted/30">
-          <button
-            onClick={chatbot.retryLastMessage}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            title="Retry last message"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Retry last message
-          </button>
+        <div className="flex justify-center">
+          <div className="w-full max-w-4xl px-4 py-2 border-b bg-muted/30">
+            <button
+              onClick={chatbot.retryLastMessage}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              title="Retry last message"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry last message
+            </button>
+          </div>
         </div>
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-6 overflow-y-auto">
+      <ScrollArea className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto p-6">
         {chatbot.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full min-h-[400px]">
             <div className="text-center">
@@ -157,10 +160,12 @@ export default function ChatBot({
             <div ref={messagesEndRef} />
           </div>
         )}
+        </div>
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t bg-background p-6">
+      <div className="border-t bg-background">
+        <div className="max-w-4xl mx-auto p-6">
         <form onSubmit={handleSubmit} className="flex gap-3">
           <Input
             ref={inputRef}
@@ -191,6 +196,7 @@ export default function ChatBot({
         <p className="text-xs text-muted-foreground mt-3 text-center">
           Press Enter to send • Shift+Enter for new line
         </p>
+        </div>
       </div>
     </div>
   );
