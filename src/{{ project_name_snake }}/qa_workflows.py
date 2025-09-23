@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 import logging
 import os
 import tempfile
@@ -196,6 +197,7 @@ class ConversationMessage(BaseModel):
     role: Literal["user", "assistant"]
     text: str
     sources: list[SourceMessage] = Field(default_factory=list)
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
 class ChatWorkflow(Workflow[ChatWorkflowState]):

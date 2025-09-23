@@ -1,20 +1,23 @@
 from __future__ import annotations
+from collections.abc import AsyncGenerator
+from datetime import datetime
 import logging
 import os
 import tempfile
 from typing import Any, Literal
 
 import httpx
-from dotenv import load_dotenv
-from llama_cloud import ChatMessage
-from llama_cloud.types import RetrievalMode
 from llama_index.core import Settings
-from llama_index.core.chat_engine.types import BaseChatEngine, ChatMode
-from llama_index.core.memory import ChatMemoryBuffer
-from pydantic import BaseModel, Field
+from llama_index.core.chat_engine.types import (
+    BaseChatEngine,
+    ChatMode,
+    StreamingAgentChatResponse,
+)
+from llama_index.core.llms import ChatMessage
+import asyncio
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
-from llama_cloud_services import LlamaCloudIndex
+from pydantic import BaseModel, Field
 from workflows import Workflow, step, Context
 from workflows.events import (
     StartEvent,
@@ -26,15 +29,12 @@ from workflows.events import (
 from workflows.retry_policy import ConstantDelayRetryPolicy
 
 from .clients import (
-    LLAMA_CLOUD_API_KEY,
-    LLAMA_CLOUD_BASE_URL,
-    get_custom_client,
+    get_index,
     get_llama_cloud_client,
     get_llama_parse_client,
     LLAMA_CLOUD_PROJECT_ID,
 )
-
-load_dotenv()
+from llama_index.core.memory import Memory
 
 
 logger = logging.getLogger(__name__)
@@ -57,14 +57,11 @@ class FileDownloadedEvent(Event):
 
 class ChatEvent(StartEvent):
     index_name: str
-    session_id: str
 
 
 # Configure LLM and embedding model
 Settings.llm = OpenAI(model="gpt-4", temperature=0.1)
 Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
-
-custom_client = get_custom_client()
 
 
 class DocumentUploadWorkflow(Workflow):
@@ -135,15 +132,7 @@ class DocumentUploadWorkflow(Workflow):
             documents = result.get_text_documents()
 
             # Create or connect to LlamaCloud Index
-            index = LlamaCloudIndex.create_index(
-                documents=documents,
-                name=index_name,
-                project_id=LLAMA_CLOUD_PROJECT_ID,
-                api_key=LLAMA_CLOUD_API_KEY,
-                base_url=LLAMA_CLOUD_BASE_URL,
-                show_progress=True,
-                custom_client=custom_client,
-            )
+            index = get_index(index_name)
 
             # Insert documents to index
             logger.info(f"Inserting {len(documents)} documents to {index_name}")
@@ -181,9 +170,14 @@ class ChatDeltaEvent(Event):
 
 
 class ChatWorkflowState(BaseModel):
-    conversation_history: list[ChatMessage] = Field(default_factory=list)
-    session_id: str | None = None
     index_name: str | None = None
+    conversation_history: list[ConversationMessage] = Field(default_factory=list)
+
+    def chat_messages(self) -> list[ChatMessage]:
+        return [
+            ChatMessage(role=message.role, content=message.text)
+            for message in self.conversation_history
+        ]
 
 
 class SourceMessage(BaseModel):
@@ -193,19 +187,31 @@ class SourceMessage(BaseModel):
 
 
 class ConversationMessage(BaseModel):
+    """
+    Mostly just a wrapper for a ChatMessage with extra context for UI. Includes a timestamp and source references.
+    """
+
     role: Literal["user", "assistant"]
     text: str
     sources: list[SourceMessage] = Field(default_factory=list)
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
-class ChatWorkflow(Workflow[ChatWorkflowState]):
+def get_chat_engine(index_name: str) -> BaseChatEngine:
+    index = get_index(index_name)
+    return index.as_chat_engine(
+        chat_mode=ChatMode.CONTEXT,
+        llm=Settings.llm,
+        context_prompt=(
+            "You are a helpful assistant that answers questions based on the provided documents. "
+            "Always cite specific information from the documents when answering. "
+            "If you cannot find the answer in the documents, say so clearly."
+        ),
+    )
+
+
+class ChatWorkflow(Workflow):
     """Workflow to handle continuous chat queries against indexed documents"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.chat_engines: dict[
-            str, BaseChatEngine
-        ] = {}  # Cache chat engines per index
 
     @step
     async def initialize_chat(
@@ -215,61 +221,23 @@ class ChatWorkflow(Workflow[ChatWorkflowState]):
         try:
             logger.info(f"Initializing chat {ev.index_name}")
             index_name = ev.index_name
-            session_id = ev.session_id
 
+            initial_state = await ctx.store.get_state()
             # Store session info in context
             await ctx.store.set("index_name", index_name)
-            await ctx.store.set("session_id", session_id)
-            if ctx.store.get("conversation_history", None) is None:
-                await ctx.store.set("conversation_history", [])
-
-            # Create cache key for chat engine
-            cache_key = f"{index_name}_{session_id}"
-
-            # Initialize chat engine if not exists
-            if cache_key not in self.chat_engines:
-                logger.info(f"Initializing chat engine {cache_key}")
-                # Connect to LlamaCloud Index
-                index = LlamaCloudIndex(
-                    name=index_name,
-                    project_id=LLAMA_CLOUD_PROJECT_ID,
-                    api_key=LLAMA_CLOUD_API_KEY,
-                    base_url=LLAMA_CLOUD_BASE_URL,
-                    async_httpx_client=custom_client,
-                )
-
-                # Create chat engine with memory
-                memory = ChatMemoryBuffer.from_defaults(
-                    token_limit=3900,
-                    chat_history=await ctx.store.get(
-                        "conversation_history", default=[]
-                    ),
-                )
-                self.chat_engines[cache_key] = index.as_chat_engine(
-                    chat_mode=ChatMode.CONTEXT,
-                    memory=memory,
-                    llm=Settings.llm,
-                    context_prompt=(
-                        "You are a helpful assistant that answers questions based on the provided documents. "
-                        "Always cite specific information from the documents when answering. "
-                        "If you cannot find the answer in the documents, say so clearly."
-                    ),
-                    verbose=False,
-                    retriever_mode=RetrievalMode.CHUNKS,
-                )
-
-            history = await ctx.store.get("conversation_history", default=[])
-            if len(history) == 0:
+            messages = await initial_state.memory.aget_all()
+            if len(messages) == 0:
                 ctx.write_event_to_stream(
-                    ConversationMessage(
-                        role="assistant",
-                        text="Chat initialized. Ask a question (or type 'exit' to quit): ",
+                    AppendChatMessage(
+                        message=ConversationMessage(
+                            role="assistant",
+                            text="Chat initialized. Ask a question (or type 'exit' to quit): ",
+                        )
                     )
                 )
             else:
-                for item in history:
-                    item: ConversationMessage = item
-                    ctx.write_event_to_stream(item)
+                for item in messages:
+                    ctx.write_event_to_stream(AppendChatMessage(message=item))
             # Request first user input
             return InputRequiredEvent(prefix="[waiting for user message]")
 
@@ -283,43 +251,52 @@ class ChatWorkflow(Workflow[ChatWorkflowState]):
 
     @step
     async def process_user_response(
-        self, ev: HumanResponseEvent, ctx: Context
+        self, ev: HumanResponseEvent, ctx: Context[ChatWorkflowState]
     ) -> InputRequiredEvent | HumanResponseEvent | StopEvent | None:
         """Process user input and generate response"""
         try:
             logger.info(f"Processing user response {ev.response}")
             user_input = ev.response.strip()
-            with ctx.store.edit_state() as state:
-                messages = state.get("conversation_history", default=[])
-                messages.append(ConversationMessage(role="user", text=user_input))
-                state.set("conversation_history", messages)
+
+            initial_state = await ctx.store.get_state()
+            memory = initial_state.memory
+            index_name = initial_state.index_name
 
             logger.info(f"User input: {user_input}")
 
             # Check for exit command
             if user_input.lower() == "exit":
                 logger.info("User input is exit")
-                conversation_history = await ctx.store.get(
-                    "conversation_history", default=[]
-                )
                 return StopEvent(
                     result={
                         "success": True,
                         "message": "Chat session ended.",
-                        "conversation_history": conversation_history,
+                        "conversation_history": await memory.aget_all(),
                     }
                 )
 
-            # Get session info from context
-            index_name = await ctx.store.get("index_name")
-            session_id = await ctx.store.get("session_id")
-            cache_key = f"{index_name}_{session_id}"
-
-            # Get chat engine
-            chat_engine = self.chat_engines[cache_key]
+            chat_engine = get_chat_engine(index_name)
 
             # Process query with chat engine (streaming)
-            stream_response = await chat_engine.astream_chat(user_input)
+            async def _fake_stream_chat() -> AsyncGenerator[str, None]:
+                for token in ["Hel", "lo, ", "how ", "are ", "you?"]:
+                    yield token
+                    await asyncio.sleep(0.1)
+
+            async def _fake_chat() -> StreamingAgentChatResponse:
+                class MockStreamResponse:
+                    def __init__(self):
+                        self.source_nodes = []
+
+                    def async_response_gen(self):
+                        return _fake_stream_chat()
+
+                return MockStreamResponse()
+
+            # stream_response = await _fake_chat()
+            stream_response = await chat_engine.astream_chat(
+                user_input, chat_history=initial_state.chat_messages()
+            )
             full_text = ""
 
             # Emit streaming deltas to the event stream
@@ -341,20 +318,22 @@ class ChatWorkflow(Workflow[ChatWorkflowState]):
                         )
                     )
 
-            # Update conversation history
-            response = ConversationMessage(
-                role="assistant", text=full_text.strip(), sources=sources
-            )
-            with ctx.store.edit_state() as state:
-                messages = state.get("conversation_history", default=[])
-                messages.append(response)
-                state.set("conversation_history", messages)
-
             # After streaming completes, emit a summary response event to stream for frontend/main printing
-            ctx.write_event_to_stream(AppendChatMessage(message=response))
+            assistant_response = ConversationMessage(
+                role="assistant", text=full_text, sources=sources
+            )
+            ctx.write_event_to_stream(AppendChatMessage(message=assistant_response))
+            async with ctx.store.edit_state() as state:
+                state.conversation_history.extend(
+                    [
+                        ConversationMessage(role="user", text=user_input),
+                        assistant_response,
+                    ]
+                )
             return InputRequiredEvent(prefix="[waiting for user message]")
 
         except Exception as e:
+            logger.error(f"Error processing query: {str(e)}", exc_info=True)
             return StopEvent(
                 result={"success": False, "error": f"Error processing query: {str(e)}"}
             )

@@ -19,26 +19,36 @@ import {
   cn,
   useWorkflowRun,
   useWorkflowHandler,
+  WorkflowEvent,
 } from "@llamaindex/ui";
 import { AGENT_NAME } from "../libs/config";
 import { toHumanResponseRawEvent } from "@/libs/utils";
+import { useChatWorkflowHandler } from "@/libs/chatWorkflowHandler";
 
 type Role = "user" | "assistant";
 interface Message {
-  id: string;
   role: Role;
+  isPartial?: boolean;
   content: string;
   timestamp: Date;
   error?: boolean;
 }
-export default function ChatBot() {
-  const { runWorkflow } = useWorkflowRun();
+export default function ChatBot({
+  handlerId,
+  onHandlerCreated,
+}: {
+  handlerId?: string;
+  onHandlerCreated?: (handlerId: string) => void;
+}) {
+  const workflowHandler = useChatWorkflowHandler({
+    handlerId,
+    onHandlerCreated,
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [handlerId, setHandlerId] = useState<string | null>(null);
   const lastProcessedEventIndexRef = useRef<number>(0);
   const [canSend, setCanSend] = useState<boolean>(false);
   const streamingMessageIndexRef = useRef<number | null>(null);
@@ -54,7 +64,7 @@ export default function ChatBot() {
   const defaultIndexName =
     (import.meta as any).env?.VITE_DEFAULT_INDEX_NAME || "document_qa_index";
   const sessionIdRef = useRef<string>(
-    `chat-${Math.random().toString(36).slice(2)}-${Date.now()}`,
+    `chat-${Math.random().toString(36).slice(2)}-${Date.now()}`
   );
 
   // UI text defaults
@@ -64,7 +74,11 @@ export default function ChatBot() {
     "Welcome! 👋 Upload a document with the control above, then ask questions here.";
 
   // Helper functions for message management
-  const appendMessage = (role: Role, msg: string): void => {
+  const appendMessage = (
+    role: Role,
+    msg: string,
+    isPartial: boolean = false
+  ): void => {
     setMessages((prev) => {
       const id = `${role}-stream-${Date.now()}`;
       const idx = prev.length;
@@ -75,19 +89,10 @@ export default function ChatBot() {
           id,
           role,
           content: msg,
+          isPartial,
           timestamp: new Date(),
         },
       ];
-    });
-  };
-
-  const updateMessage = (index: number, message: string) => {
-    setMessages((prev) => {
-      if (index < 0 || index >= prev.length) return prev;
-      const copy = [...prev];
-      const existing = copy[index];
-      copy[index] = { ...existing, content: message };
-      return copy;
     });
   };
 
@@ -95,26 +100,12 @@ export default function ChatBot() {
   useEffect(() => {
     if (messages.length === 0) {
       const welcomeMsg: Message = {
-        id: "welcome",
         role: "assistant",
         content: welcomeMessage,
         timestamp: new Date(),
       };
       setMessages([welcomeMsg]);
     }
-  }, []);
-
-  // Create chat task on init
-  useEffect(() => {
-    (async () => {
-      if (!handlerId) {
-        const handler = await runWorkflow("chat", {
-          index_name: defaultIndexName,
-          session_id: sessionIdRef.current,
-        });
-        setHandlerId(handler.handler_id);
-      }
-    })();
   }, []);
 
   // Subscribe to task/events using hook (auto stream when handler exists)
@@ -127,36 +118,20 @@ export default function ChatBot() {
     if (startIdx < 0) startIdx = 0;
     if (startIdx >= events.length) return;
 
-    for (let i = startIdx; i < events.length; i++) {
-      const ev: any = events[i];
-      const type = ev?.type as string | undefined;
-      const rawData = ev?.data as any;
+    const eventsToProcess = events.slice(startIdx);
+    const newMessages = toMessages(eventsToProcess);
+    if (newMessages.length > 0) {
+      setMessages((prev) => mergeMessages(prev, newMessages));
+    }
+    for (const ev of eventsToProcess) {
+      const type = ev.type;
       if (!type) continue;
-      const data = (rawData && (rawData._data ?? rawData)) as any;
-
-      if (type.includes("ChatDeltaEvent")) {
-        const delta: string = data?.delta ?? "";
-        if (!delta) continue;
-        if (streamingMessageIndexRef.current === null) {
-          appendMessage("assistant", delta);
-        } else {
-          const idx = streamingMessageIndexRef.current;
-          const current = messages[idx!]?.content ?? "";
-          if (current === "Thinking...") {
-            updateMessage(idx!, delta);
-          } else {
-            updateMessage(idx!, current + delta);
-          }
-        }
-      } else if (type.includes("ChatResponseEvent")) {
-        // finalize current stream
-        streamingMessageIndexRef.current = null;
-      } else if (type.includes("InputRequiredEvent")) {
+      if (type.endsWith(".InputRequiredEvent")) {
         // ready for next user input; enable send
         setCanSend(true);
         setIsLoading(false);
         inputRef.current?.focus();
-      } else if (type.includes("StopEvent")) {
+      } else if (type.endsWith(".StopEvent")) {
         // finished; no summary bubble needed (chat response already streamed)
       }
     }
@@ -178,16 +153,6 @@ export default function ChatBot() {
     ...(projectId ? { "Project-Id": projectId } : {}),
   });
 
-  const startChatIfNeeded = async (): Promise<string> => {
-    if (handlerId) return handlerId;
-    const handler = await runWorkflow("chat", {
-      index_name: defaultIndexName,
-      session_id: sessionIdRef.current,
-    });
-    setHandlerId(handler.handler_id);
-    return handler.handler_id;
-  };
-
   // Removed manual SSE ensureEventStream; hook handles streaming
 
   const handleSubmit = async (e: FormEvent) => {
@@ -198,7 +163,6 @@ export default function ChatBot() {
 
     // Add user message
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
       role: "user",
       content: trimmedInput,
       timestamp: new Date(),
@@ -212,37 +176,21 @@ export default function ChatBot() {
 
     // Immediately create an assistant placeholder to avoid visual gap before deltas
     if (streamingMessageIndexRef.current === null) {
-      appendMessage("assistant", "Thinking...");
+      appendMessage("assistant", "Thinking...", true);
     }
 
     try {
-      // Ensure chat handler exists (created on init)
-      const hid = await startChatIfNeeded();
-
       // Send user input as HumanResponseEvent
-      const postRes = await fetch(`/deployments/${deployment}/events/${hid}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getCommonHeaders(),
-        },
-        body: JSON.stringify({
-          event: JSON.stringify(toHumanResponseRawEvent(trimmedInput)),
-        }),
+      await workflowHandler.sendEvent({
+        data: { _data: { response: trimmedInput } },
+        type: "workflows.events.HumanResponseEvent",
       });
-      if (!postRes.ok) {
-        throw new Error(
-          `Failed to send message: ${postRes.status} ${postRes.statusText}`,
-        );
-      }
-
       // The assistant reply will be streamed by useWorkflowTask and appended incrementally
     } catch (err) {
       console.error("Chat error:", err);
 
       // Add error message
       const errorMessage: Message = {
-        id: `error-${Date.now()}`,
         role: "assistant",
         content: `Sorry, I encountered an error: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
         timestamp: new Date(),
@@ -268,7 +216,6 @@ export default function ChatBot() {
   const clearChat = () => {
     setMessages([
       {
-        id: "welcome",
         role: "assistant" as const,
         content: welcomeMessage,
         timestamp: new Date(),
@@ -294,7 +241,7 @@ export default function ChatBot() {
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg",
+        "flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg"
       )}
     >
       {/* Header */}
@@ -350,12 +297,12 @@ export default function ChatBot() {
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((message) => (
+            {messages.map((message, i) => (
               <div
-                key={message.id}
+                key={i}
                 className={cn(
                   "flex gap-3",
-                  message.role === "user" ? "justify-end" : "justify-start",
+                  message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
                 {message.role !== "user" && (
@@ -364,7 +311,7 @@ export default function ChatBot() {
                       "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                       message.error
                         ? "bg-red-100 dark:bg-red-900"
-                        : "bg-blue-100 dark:bg-blue-900",
+                        : "bg-blue-100 dark:bg-blue-900"
                     )}
                   >
                     <Bot
@@ -372,7 +319,7 @@ export default function ChatBot() {
                         "w-5 h-5",
                         message.error
                           ? "text-red-600 dark:text-red-400"
-                          : "text-blue-600 dark:text-blue-400",
+                          : "text-blue-600 dark:text-blue-400"
                       )}
                     />
                   </div>
@@ -380,7 +327,7 @@ export default function ChatBot() {
                 <div
                   className={cn(
                     "max-w-[70%]",
-                    message.role === "user" ? "order-1" : "order-2",
+                    message.role === "user" ? "order-1" : "order-2"
                   )}
                 >
                   <Card
@@ -390,14 +337,14 @@ export default function ChatBot() {
                         ? "bg-blue-600 text-white border-blue-600"
                         : message.error
                           ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                          : "bg-gray-50 dark:bg-gray-700",
+                          : "bg-gray-50 dark:bg-gray-700"
                     )}
                   >
                     <CardContent className="p-3">
                       <p
                         className={cn(
                           "whitespace-pre-wrap text-sm",
-                          message.error && "text-red-700 dark:text-red-400",
+                          message.error && "text-red-700 dark:text-red-400"
                         )}
                       >
                         {message.content}
@@ -409,7 +356,7 @@ export default function ChatBot() {
                             ? "text-blue-100"
                             : message.error
                               ? "text-red-500 dark:text-red-400"
-                              : "text-gray-500 dark:text-gray-400",
+                              : "text-gray-500 dark:text-gray-400"
                         )}
                       >
                         {message.timestamp.toLocaleTimeString()}
@@ -489,4 +436,93 @@ export default function ChatBot() {
       </div>
     </div>
   );
+}
+
+interface _Message {
+  role: "assistant" | "user";
+  content: string;
+  isPartial?: boolean;
+  timestamp: string;
+}
+
+interface AppendChatMessageData {
+  message: ChatMessage;
+}
+interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+  sources: {
+    text: string;
+    score: number;
+    metadata: Record<string, any>;
+  }[];
+  timestamp: string;
+}
+
+function mergeMessages(previous: Message[], current: Message[]): Message[] {
+  const lastPreviousMessage = previous[previous.length - 1];
+  const restPrevious = previous.slice(0, -1);
+  const firstCurrentMessage = current[0];
+  const restCurrent = current.slice(1);
+  if (!lastPreviousMessage || !firstCurrentMessage) {
+    return [...previous, ...current];
+  }
+  if (lastPreviousMessage.isPartial && firstCurrentMessage.isPartial) {
+    const lastContent =
+      lastPreviousMessage.content === "Thinking..."
+        ? ""
+        : lastPreviousMessage.content;
+    const merged = {
+      ...lastPreviousMessage,
+      content: lastContent + firstCurrentMessage.content,
+    };
+    return [...restPrevious, merged, ...restCurrent];
+  } else if (
+    lastPreviousMessage.isPartial &&
+    firstCurrentMessage.role === lastPreviousMessage.role
+  ) {
+    return [...restPrevious, firstCurrentMessage, ...restCurrent];
+  } else {
+    return [...previous, ...current];
+  }
+}
+
+function toMessages(events: WorkflowEvent[]): Message[] {
+  const messages: Message[] = [];
+  for (const ev of events) {
+    const type = ev.type;
+    const data = ev.data as any;
+    const lastMessage = messages[messages.length - 1];
+    if (type.endsWith(".ChatDeltaEvent")) {
+      const delta: string = data?.delta ?? "";
+      if (!delta) continue;
+      if (!lastMessage || !lastMessage.isPartial) {
+        messages.push({
+          role: "assistant",
+          content: delta,
+          isPartial: true,
+          timestamp: new Date(),
+        });
+      } else {
+        lastMessage.content += delta;
+      }
+    } else if (type.endsWith(".AppendChatMessage")) {
+      if (
+        lastMessage &&
+        lastMessage.isPartial &&
+        lastMessage.role === "assistant"
+      ) {
+        messages.pop();
+      }
+      const content = ev.data as unknown as AppendChatMessageData;
+      console.log("AppendChatMessage", content);
+      messages.push({
+        role: content.message.role,
+        content: content.message.text,
+        timestamp: new Date(content.message.timestamp),
+        isPartial: false,
+      });
+    }
+  }
+  return messages;
 }

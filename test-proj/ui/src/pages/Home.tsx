@@ -1,8 +1,11 @@
 import ChatBot from "../components/ChatBot";
 import { WorkflowTrigger } from "@llamaindex/ui";
 import { APP_TITLE, INDEX_NAME } from "../libs/config";
+import { useChatHistory } from "@/libs/chatHistory";
+import Sidebar from "@/components/Sidebar";
 
 export default function Home() {
+  const chatHistory = useChatHistory();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -16,21 +19,26 @@ export default function Home() {
           </p>
         </header>
 
-        <div>
-          <div className="flex mb-4">
-            <WorkflowTrigger
-              workflowName="upload"
-              customWorkflowInput={(files, fieldValues) => {
-                return {
-                  file_id: files[0].fileId,
-                  index_name: INDEX_NAME,
-                };
-              }}
-            />
-          </div>
+        <div className="flex gap-4">
+          <Sidebar />
           <div>
-            <div className="h-[700px]">
-              <ChatBot />
+            <div className="flex mb-4">
+              <WorkflowTrigger
+                workflowName="upload"
+                customWorkflowInput={(files, fieldValues) => {
+                  return {
+                    file_id: files[0].fileId,
+                    index_name: INDEX_NAME,
+                  };
+                }}
+              />
+            </div>
+            <div>
+              <div className="h-[700px]">
+                {!chatHistory.loading && (
+                  <ChatBot handlerId={chatHistory.selectedChat?.handlerId} />
+                )}
+              </div>
             </div>
           </div>
         </div>
