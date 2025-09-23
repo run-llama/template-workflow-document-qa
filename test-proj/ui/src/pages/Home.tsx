@@ -1,11 +1,23 @@
 import ChatBot from "../components/ChatBot";
-import { WorkflowTrigger } from "@llamaindex/ui";
+import {
+  useWorkflowHandlerList,
+  WorkflowProgressBar,
+  WorkflowTrigger,
+} from "@llamaindex/ui";
 import { APP_TITLE, INDEX_NAME } from "../libs/config";
 import { useChatHistory } from "@/libs/useChatHistory";
 import Sidebar from "@/components/Sidebar";
+import { Loader } from "lucide-react";
 
 export default function Home() {
   const chatHistory = useChatHistory();
+  const handlers = useWorkflowHandlerList("upload");
+  const activeHandlers = handlers.handlers.filter(
+    (h) => h.status === "running" && h.workflowName === "upload"
+  );
+  const anyActiveHandlers = activeHandlers.length > 0;
+  console.log("activeHandlers", activeHandlers);
+  console.log("anyActiveHandlers", anyActiveHandlers);
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -32,14 +44,19 @@ export default function Home() {
                   };
                 }}
               />
+              {anyActiveHandlers && (
+                <div className="ml-3 flex items-center justify-center">
+                  <Loader className="w-4 h-4 animate-spin" />
+                </div>
+              )}
             </div>
             <div>
               <div className="h-[700px]">
                 {!chatHistory.loading && (
                   <ChatBot
-                    key={`${chatHistory.chatCounter}-${chatHistory.selectedChatId || 'new'}`}
+                    key={`${chatHistory.chatCounter}-${chatHistory.selectedChatId || "new"}`}
                     handlerId={chatHistory.selectedChatId ?? undefined}
-                    onHandlerCreated={handler => {
+                    onHandlerCreated={(handler) => {
                       chatHistory.addChat(handler);
                       chatHistory.setSelectedChatId(handler);
                     }}
