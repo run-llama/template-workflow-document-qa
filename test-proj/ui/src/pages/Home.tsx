@@ -1,7 +1,7 @@
 import ChatBot from "../components/ChatBot";
 import { WorkflowTrigger } from "@llamaindex/ui";
 import { APP_TITLE, INDEX_NAME } from "../libs/config";
-import { useChatHistory } from "@/libs/chatHistory";
+import { useChatHistory } from "@/libs/useChatHistory";
 import Sidebar from "@/components/Sidebar";
 
 export default function Home() {
@@ -20,7 +20,7 @@ export default function Home() {
         </header>
 
         <div className="flex gap-4 w-full items-stretch">
-          <Sidebar />
+          <Sidebar chatHistory={chatHistory} />
           <div className="w-full">
             <div className="flex mb-4">
               <WorkflowTrigger
@@ -37,6 +37,7 @@ export default function Home() {
               <div className="h-[700px]">
                 {!chatHistory.loading && (
                   <ChatBot
+                    key={`${chatHistory.chatCounter}-${chatHistory.selectedChatId || 'new'}`}
                     handlerId={chatHistory.selectedChatId ?? undefined}
                     onHandlerCreated={handler => {
                       chatHistory.addChat(handler);

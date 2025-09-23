@@ -34,8 +34,6 @@ from .clients import (
     get_llama_parse_client,
     LLAMA_CLOUD_PROJECT_ID,
 )
-from llama_index.core.memory import Memory
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +55,7 @@ class FileDownloadedEvent(Event):
 
 class ChatEvent(StartEvent):
     index_name: str
+    conversation_history: list[ConversationMessage] = Field(default_factory=list)
 
 
 # Configure LLM and embedding model
@@ -225,23 +224,19 @@ class ChatWorkflow(Workflow):
             initial_state = await ctx.store.get_state()
             # Store session info in context
             await ctx.store.set("index_name", index_name)
-            messages = await initial_state.memory.aget_all()
-            if len(messages) == 0:
-                ctx.write_event_to_stream(
-                    AppendChatMessage(
-                        message=ConversationMessage(
-                            role="assistant",
-                            text="Chat initialized. Ask a question (or type 'exit' to quit): ",
-                        )
-                    )
-                )
-            else:
-                for item in messages:
-                    ctx.write_event_to_stream(AppendChatMessage(message=item))
+            messages = initial_state.conversation_history
+
+            for item in messages:
+                ctx.write_event_to_stream(AppendChatMessage(message=item))
+
+            if ev.conversation_history:
+                async with ctx.store.edit_state() as state:
+                    state.conversation_history.extend(ev.conversation_history)
             # Request first user input
             return InputRequiredEvent(prefix="[waiting for user message]")
 
         except Exception as e:
+            logger.error(f"Error initializing chat: {str(e)}", exc_info=True)
             return StopEvent(
                 result={
                     "success": False,
@@ -259,7 +254,7 @@ class ChatWorkflow(Workflow):
             user_input = ev.response.strip()
 
             initial_state = await ctx.store.get_state()
-            memory = initial_state.memory
+            conversation_history = initial_state.conversation_history
             index_name = initial_state.index_name
 
             logger.info(f"User input: {user_input}")
@@ -271,7 +266,7 @@ class ChatWorkflow(Workflow):
                     result={
                         "success": True,
                         "message": "Chat session ended.",
-                        "conversation_history": await memory.aget_all(),
+                        "conversation_history": conversation_history,
                     }
                 )
 

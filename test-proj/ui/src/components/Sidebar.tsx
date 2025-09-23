@@ -1,29 +1,39 @@
-import { X } from "lucide-react";
-import { ScrollArea, cn } from "@llamaindex/ui";
-import { useChatHistory, ChatHistory } from "../libs/chatHistory";
+import { Plus, X } from "lucide-react";
+import { Button, ScrollArea, cn } from "@llamaindex/ui";
+import { ChatHistory, UseChatHistory } from "../libs/useChatHistory";
 
 interface SidebarProps {
   className?: string;
+  chatHistory: UseChatHistory;
 }
 
-export default function Sidebar({ className }: SidebarProps) {
-  const { loading, getChats, selectedChatId, setSelectedChatId, deleteChat } =
-    useChatHistory();
+export default function Sidebar({ className, chatHistory }: SidebarProps) {
+  const {
+    loading,
+    getChats,
+    selectedChatId,
+    setSelectedChatId,
+    deleteChat,
+    createNewChat,
+  } = chatHistory;
   const chats = getChats();
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      return "Just now";
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else if (diffInHours < 24 * 7) {
-      return `${Math.floor(diffInHours / 24)}d ago`;
+    const isToday = date.toDateString() === now.toDateString();
+    
+    const timeString = date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+    
+    if (isToday) {
+      return timeString;
     } else {
-      return date.toLocaleDateString();
+      const dateString = date.toLocaleDateString();
+      return `${dateString} ${timeString}`;
     }
   };
 
@@ -45,9 +55,20 @@ export default function Sidebar({ className }: SidebarProps) {
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-          Chats
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+            Chats
+          </h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={createNewChat}
+            className="h-8 w-8 p-0"
+            title="New Chat"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Chat List */}

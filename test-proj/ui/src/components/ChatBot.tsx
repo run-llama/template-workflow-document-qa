@@ -1,36 +1,25 @@
 // This is a temporary chatbot component that is used to test the chatbot functionality.
 // LlamaIndex will replace it with better chatbot component.
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
-import {
-  Send,
-  Loader2,
-  Bot,
-  User,
-  MessageSquare,
-  Trash2,
-  RefreshCw,
-} from "lucide-react";
+import { useChatbot } from "@/libs/useChatbot";
 import {
   Button,
-  Input,
-  ScrollArea,
   Card,
   CardContent,
   cn,
-  useWorkflowHandler,
-  WorkflowEvent,
+  Input,
+  ScrollArea,
 } from "@llamaindex/ui";
-import { AGENT_NAME } from "../libs/config";
-import { useChatWorkflowHandler } from "@/libs/chatWorkflowHandler";
+import {
+  Bot,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Send,
+  Trash2,
+  User,
+} from "lucide-react";
+import { FormEvent, KeyboardEvent, useEffect, useRef } from "react";
 
-type Role = "user" | "assistant";
-interface Message {
-  role: Role;
-  isPartial?: boolean;
-  content: string;
-  timestamp: Date;
-  error?: boolean;
-}
 export default function ChatBot({
   handlerId,
   onHandlerCreated,
@@ -38,103 +27,19 @@ export default function ChatBot({
   handlerId?: string;
   onHandlerCreated?: (handlerId: string) => void;
 }) {
-  const workflowHandler = useChatWorkflowHandler({
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatbot = useChatbot({
     handlerId,
     onHandlerCreated,
+    focusInput: () => {
+      inputRef.current?.focus();
+    },
   });
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const lastProcessedEventIndexRef = useRef<number>(0);
-  const [canSend, setCanSend] = useState<boolean>(false);
-  const streamingMessageIndexRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (handlerId) {
-      setIsLoading(false); // whenever handler becomes defined and changed, stop loading
-      setCanSend(true);
-    }
-  }, [handlerId]);
 
-  // Deployment + auth setup
-  const platformToken = (import.meta as any).env?.VITE_LLAMA_CLOUD_API_KEY as
-    | string
-    | undefined;
-  const projectId = (import.meta as any).env?.VITE_LLAMA_DEPLOY_PROJECT_ID as
-    | string
-    | undefined;
-  
   // UI text defaults
   const title = "AI Document Assistant";
   const placeholder = "Ask me anything about your documents...";
-  const welcomeMessage =
-    "Welcome! 👋 Upload a document with the control above, then ask questions here.";
-
-  // Helper functions for message management
-  const appendMessage = (
-    role: Role,
-    msg: string,
-    isPartial: boolean = false
-  ): void => {
-    setMessages((prev) => {
-      const id = `${role}-stream-${Date.now()}`;
-      const idx = prev.length;
-      streamingMessageIndexRef.current = idx;
-      return [
-        ...prev,
-        {
-          id,
-          role,
-          content: msg,
-          isPartial,
-          timestamp: new Date(),
-        },
-      ];
-    });
-  };
-
-  // Initialize with welcome message
-  useEffect(() => {
-    if (messages.length === 0) {
-      const welcomeMsg: Message = {
-        role: "assistant",
-        content: welcomeMessage,
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMsg]);
-    }
-  }, []);
-
-  // Subscribe to task/events using hook (auto stream when handler exists)
-  const { events } = useWorkflowHandler(handlerId ?? "", Boolean(handlerId));
-
-  // Process streamed events into messages
-  useEffect(() => {
-    if (!events || events.length === 0) return;
-    let startIdx = lastProcessedEventIndexRef.current;
-    if (startIdx < 0) startIdx = 0;
-    if (startIdx >= events.length) return;
-
-    const eventsToProcess = events.slice(startIdx);
-    const newMessages = toMessages(eventsToProcess);
-    if (newMessages.length > 0) {
-      setMessages((prev) => mergeMessages(prev, newMessages));
-    }
-    for (const ev of eventsToProcess) {
-      const type = ev.type;
-      if (!type) continue;
-      if (type.endsWith(".InputRequiredEvent")) {
-        // ready for next user input; enable send
-        setCanSend(true);
-        setIsLoading(false);
-        inputRef.current?.focus();
-      } else if (type.endsWith(".StopEvent")) {
-        // finished; no summary bubble needed (chat response already streamed)
-      }
-    }
-    lastProcessedEventIndexRef.current = events.length;
-  }, [events, messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,65 +47,11 @@ export default function ChatBot({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  // No manual SSE cleanup needed
-
-  const getCommonHeaders = () => ({
-    ...(platformToken ? { authorization: `Bearer ${platformToken}` } : {}),
-    ...(projectId ? { "Project-Id": projectId } : {}),
-  });
-
-  // Removed manual SSE ensureEventStream; hook handles streaming
+  }, [chatbot.messages]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    const trimmedInput = input.trim();
-    if (!trimmedInput || isLoading || !canSend) return;
-
-    // Add user message
-    const userMessage: Message = {
-      role: "user",
-      content: trimmedInput,
-      timestamp: new Date(),
-    };
-
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInput("");
-    setIsLoading(true);
-    setCanSend(false);
-
-    // Immediately create an assistant placeholder to avoid visual gap before deltas
-    if (streamingMessageIndexRef.current === null) {
-      appendMessage("assistant", "Thinking...", true);
-    }
-
-    try {
-      // Send user input as HumanResponseEvent
-      await workflowHandler.sendEvent({
-        data: { _data: { response: trimmedInput } },
-        type: "workflows.events.HumanResponseEvent",
-      });
-      // The assistant reply will be streamed by useWorkflowTask and appended incrementally
-    } catch (err) {
-      console.error("Chat error:", err);
-
-      // Add error message
-      const errorMessage: Message = {
-        role: "assistant",
-        content: `Sorry, I encountered an error: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
-        timestamp: new Date(),
-        error: true,
-      };
-
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      // Focus back on input
-      inputRef.current?.focus();
-    }
+    await chatbot.submit();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -208,31 +59,6 @@ export default function ChatBot({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
-    }
-  };
-
-  const clearChat = () => {
-    setMessages([
-      {
-        role: "assistant" as const,
-        content: welcomeMessage,
-        timestamp: new Date(),
-      },
-    ]);
-    setInput("");
-    inputRef.current?.focus();
-  };
-
-  const retryLastMessage = () => {
-    const lastUserMessage = messages.filter((m) => m.role === "user").pop();
-    if (lastUserMessage) {
-      // Remove the last assistant message if it was an error
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === "assistant" && lastMessage.error) {
-        setMessages((prev) => prev.slice(0, -1));
-      }
-      setInput(lastUserMessage.content);
-      inputRef.current?.focus();
     }
   };
 
@@ -250,25 +76,25 @@ export default function ChatBot({
             <h3 className="font-semibold text-gray-900 dark:text-white">
               {title}
             </h3>
-            {isLoading && (
+            {chatbot.isLoading && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 Thinking...
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {messages.some((m) => m.error) && (
+            {chatbot.messages.some((m) => m.error) && (
               <button
-                onClick={retryLastMessage}
+                onClick={chatbot.retryLastMessage}
                 className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                 title="Retry last message"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
             )}
-            {messages.length > 0 && (
+            {chatbot.messages.length > 0 && (
               <button
-                onClick={clearChat}
+                onClick={chatbot.clearChat}
                 className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                 title="Clear chat"
               >
@@ -281,7 +107,7 @@ export default function ChatBot({
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4 overflow-y-auto">
-        {messages.length === 0 ? (
+        {chatbot.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full min-h-[300px]">
             <div className="text-center">
               <Bot className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
@@ -295,7 +121,7 @@ export default function ChatBot({
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((message, i) => (
+            {chatbot.messages.map((message, i) => (
               <div
                 key={i}
                 className={cn(
@@ -370,7 +196,7 @@ export default function ChatBot({
               </div>
             ))}
 
-            {isLoading && (
+            {chatbot.isLoading && (
               <div className="flex gap-3 justify-start">
                 <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                   <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -407,21 +233,23 @@ export default function ChatBot({
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
             ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={chatbot.input}
+            onChange={(e) => chatbot.setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            disabled={isLoading}
+            disabled={chatbot.isLoading}
             className="flex-1"
             autoFocus
           />
           <Button
             type="submit"
-            disabled={!canSend || isLoading || !input.trim()}
+            disabled={
+              !chatbot.canSend || chatbot.isLoading || !chatbot.input.trim()
+            }
             size="icon"
             title="Send message"
           >
-            {!canSend || isLoading ? (
+            {!chatbot.canSend || chatbot.isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
@@ -434,93 +262,4 @@ export default function ChatBot({
       </div>
     </div>
   );
-}
-
-interface _Message {
-  role: "assistant" | "user";
-  content: string;
-  isPartial?: boolean;
-  timestamp: string;
-}
-
-interface AppendChatMessageData {
-  message: ChatMessage;
-}
-interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-  sources: {
-    text: string;
-    score: number;
-    metadata: Record<string, any>;
-  }[];
-  timestamp: string;
-}
-
-function mergeMessages(previous: Message[], current: Message[]): Message[] {
-  const lastPreviousMessage = previous[previous.length - 1];
-  const restPrevious = previous.slice(0, -1);
-  const firstCurrentMessage = current[0];
-  const restCurrent = current.slice(1);
-  if (!lastPreviousMessage || !firstCurrentMessage) {
-    return [...previous, ...current];
-  }
-  if (lastPreviousMessage.isPartial && firstCurrentMessage.isPartial) {
-    const lastContent =
-      lastPreviousMessage.content === "Thinking..."
-        ? ""
-        : lastPreviousMessage.content;
-    const merged = {
-      ...lastPreviousMessage,
-      content: lastContent + firstCurrentMessage.content,
-    };
-    return [...restPrevious, merged, ...restCurrent];
-  } else if (
-    lastPreviousMessage.isPartial &&
-    firstCurrentMessage.role === lastPreviousMessage.role
-  ) {
-    return [...restPrevious, firstCurrentMessage, ...restCurrent];
-  } else {
-    return [...previous, ...current];
-  }
-}
-
-function toMessages(events: WorkflowEvent[]): Message[] {
-  const messages: Message[] = [];
-  for (const ev of events) {
-    const type = ev.type;
-    const data = ev.data as any;
-    const lastMessage = messages[messages.length - 1];
-    if (type.endsWith(".ChatDeltaEvent")) {
-      const delta: string = data?.delta ?? "";
-      if (!delta) continue;
-      if (!lastMessage || !lastMessage.isPartial) {
-        messages.push({
-          role: "assistant",
-          content: delta,
-          isPartial: true,
-          timestamp: new Date(),
-        });
-      } else {
-        lastMessage.content += delta;
-      }
-    } else if (type.endsWith(".AppendChatMessage")) {
-      if (
-        lastMessage &&
-        lastMessage.isPartial &&
-        lastMessage.role === "assistant"
-      ) {
-        messages.pop();
-      }
-      const content = ev.data as unknown as AppendChatMessageData;
-      console.log("AppendChatMessage", content);
-      messages.push({
-        role: content.message.role,
-        content: content.message.text,
-        timestamp: new Date(content.message.timestamp),
-        isPartial: false,
-      });
-    }
-  }
-  return messages;
 }

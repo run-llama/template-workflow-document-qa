@@ -13,6 +13,9 @@ export interface UseChatHistory {
   getChats(): ChatHistory[];
   selectedChatId: string | null;
   setSelectedChatId(handlerId: string): void;
+  createNewChat(): void;
+  // forces a new chat
+  chatCounter: number;
 }
 
 const DB_NAME = "chat-history";
@@ -31,6 +34,7 @@ export function useChatHistory(): UseChatHistory {
     string | null
   >(null);
   const [db, setDb] = useState<IDBPDatabase<unknown> | null>(null);
+  const [chatCounter, setChatCounter] = useState(0);
 
   // Initialize database
   useEffect(() => {
@@ -165,6 +169,11 @@ export function useChatHistory(): UseChatHistory {
     return chatHistory;
   };
 
+  const createNewChat = (): void => {
+    setSelectedChatHandlerId(null);
+    setChatCounter(prev => prev + 1);
+  };
+
   return {
     loading,
     addChat,
@@ -172,5 +181,7 @@ export function useChatHistory(): UseChatHistory {
     selectedChatId: selectedChatHandlerId,
     setSelectedChatId: setSelectedChatHandlerId,
     deleteChat,
+    createNewChat,
+    chatCounter,
   };
 }
