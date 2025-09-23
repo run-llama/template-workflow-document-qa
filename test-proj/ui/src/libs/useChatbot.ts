@@ -1,15 +1,9 @@
 // This is a temporary chatbot component that is used to test the chatbot functionality.
 // LlamaIndex will replace it with better chatbot component.
-import {
-    useWorkflowHandler,
-    WorkflowEvent
-} from "@llamaindex/ui";
-import {
-    useEffect,
-    useRef,
-    useState
-} from "react";
+import { WorkflowEvent } from "@llamaindex/ui";
+import { useEffect, useRef, useState } from "react";
 import { useChatWorkflowHandler } from "./useChatWorkflowHandler";
+import { createHumanResponseEvent } from "./events";
 
 export type Role = "user" | "assistant";
 export interface Message {
@@ -23,7 +17,6 @@ export interface Message {
 export interface ChatbotState {
   submit(): Promise<void>;
   retryLastMessage: () => void;
-  clearChat: () => void;
   setInput: (input: string) => void;
 
   messages: Message[];
@@ -37,19 +30,19 @@ export function useChatbot({
   onHandlerCreated,
   focusInput: focusInput,
 }: {
-  handlerId?: string,
-  onHandlerCreated?: (handlerId: string) => void,
-  focusInput?: () => void
+  handlerId?: string;
+  onHandlerCreated?: (handlerId: string) => void;
+  focusInput?: () => void;
 }): ChatbotState {
   const workflowHandler = useChatWorkflowHandler({
     handlerId,
     onHandlerCreated,
   });
+  const { events } = workflowHandler;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const lastProcessedEventIndexRef = useRef<number>(0);
-  const streamingMessageIndexRef = useRef<number | null>(null);
   const [canSend, setCanSend] = useState<boolean>(false);
 
   // Whenever handler becomes defined and changed, stop loading
@@ -59,27 +52,6 @@ export function useChatbot({
       setCanSend(true);
     }
   }, [handlerId]);
-
-  // Helper functions for message management
-  const appendMessage = (
-    role: Role,
-    msg: string,
-    isPartial: boolean = false
-  ): void => {
-    setMessages((prev) => {
-      const idx = prev.length;
-      streamingMessageIndexRef.current = idx;
-      return [
-        ...prev,
-        {
-          role,
-          content: msg,
-          isPartial,
-          timestamp: new Date(),
-        },
-      ];
-    });
-  };
 
   const welcomeMessage =
     "Welcome! 👋 Upload a document with the control above, then ask questions here.";
@@ -95,9 +67,6 @@ export function useChatbot({
       setMessages([welcomeMsg]);
     }
   }, []);
-
-  // Subscribe to task/events using hook (auto stream when handler exists)
-  const { events } = useWorkflowHandler(handlerId ?? "", Boolean(handlerId));
 
   // Process streamed events into messages
   useEffect(() => {
@@ -125,18 +94,6 @@ export function useChatbot({
     lastProcessedEventIndexRef.current = events.length;
   }, [events, messages]);
 
-  const clearChat = () => {
-    setMessages([
-      {
-        role: "assistant" as const,
-        content: welcomeMessage,
-        timestamp: new Date(),
-      },
-    ]);
-    setInput("");
-    focusInput?.();
-  };
-
   const retryLastMessage = () => {
     const lastUserMessage = messages.filter((m) => m.role === "user").pop();
     if (lastUserMessage) {
@@ -160,25 +117,22 @@ export function useChatbot({
       content: trimmedInput,
       timestamp: new Date(),
     };
+    const placeHolderMessage: Message = {
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      isPartial: true,
+    };
 
-    const newMessages = [...messages, userMessage];
+    const newMessages = [...messages, userMessage, placeHolderMessage];
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
     setCanSend(false);
 
-    // Immediately create an assistant placeholder to avoid visual gap before deltas
-    if (streamingMessageIndexRef.current === null) {
-      appendMessage("assistant", "Thinking...", true);
-    }
-
     try {
       // Send user input as HumanResponseEvent
-      await workflowHandler.sendEvent({
-        data: { _data: { response: trimmedInput } },
-        type: "workflows.events.HumanResponseEvent",
-      });
-      // The assistant reply will be streamed by useWorkflowTask and appended incrementally
+      await workflowHandler.sendEvent(createHumanResponseEvent(trimmedInput));
     } catch (err) {
       console.error("Chat error:", err);
 
@@ -206,7 +160,6 @@ export function useChatbot({
     setInput,
     isLoading,
     canSend,
-    clearChat,
   };
 }
 
@@ -280,7 +233,6 @@ function toMessages(events: WorkflowEvent[]): Message[] {
         messages.pop();
       }
       const content = ev.data as unknown as AppendChatMessageData;
-      console.log("AppendChatMessage", content);
       messages.push({
         role: content.message.role,
         content: content.message.text,

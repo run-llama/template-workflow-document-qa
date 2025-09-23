@@ -168,6 +168,12 @@ class ChatDeltaEvent(Event):
     delta: str
 
 
+class QueryConversationHistoryEvent(HumanResponseEvent):
+    """Client can call this to trigger replaying AppendChatMessage events"""
+
+    pass
+
+
 class ChatWorkflowState(BaseModel):
     index_name: str | None = None
     conversation_history: list[ConversationMessage] = Field(default_factory=list)
@@ -245,6 +251,15 @@ class ChatWorkflow(Workflow):
             )
 
     @step
+    async def get_conversation_history(
+        self, ev: QueryConversationHistoryEvent, ctx: Context[ChatWorkflowState]
+    ) -> None:
+        """Get the conversation history from the database"""
+        hist = (await ctx.store.get_state()).conversation_history
+        for item in hist:
+            ctx.write_event_to_stream(AppendChatMessage(message=item))
+
+    @step
     async def process_user_response(
         self, ev: HumanResponseEvent, ctx: Context[ChatWorkflowState]
     ) -> InputRequiredEvent | HumanResponseEvent | StopEvent | None:
@@ -298,6 +313,7 @@ class ChatWorkflow(Workflow):
             async for token in stream_response.async_response_gen():
                 full_text += token
                 ctx.write_event_to_stream(ChatDeltaEvent(delta=token))
+                await asyncio.sleep(0) # Temp workaround. Some sort of bug in the server drops events without flushing the event loop
 
             # Extract source nodes for citations
             sources = []

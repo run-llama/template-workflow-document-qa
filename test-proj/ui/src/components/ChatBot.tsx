@@ -15,7 +15,6 @@ import {
   MessageSquare,
   RefreshCw,
   Send,
-  Trash2,
   User,
 } from "lucide-react";
 import { FormEvent, KeyboardEvent, useEffect, useRef } from "react";
@@ -76,11 +75,6 @@ export default function ChatBot({
             <h3 className="font-semibold text-gray-900 dark:text-white">
               {title}
             </h3>
-            {chatbot.isLoading && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Thinking...
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-2">
             {chatbot.messages.some((m) => m.error) && (
@@ -90,15 +84,6 @@ export default function ChatBot({
                 title="Retry last message"
               >
                 <RefreshCw className="w-4 h-4" />
-              </button>
-            )}
-            {chatbot.messages.length > 0 && (
-              <button
-                onClick={chatbot.clearChat}
-                className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                title="Clear chat"
-              >
-                <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -165,14 +150,20 @@ export default function ChatBot({
                     )}
                   >
                     <CardContent className="p-3">
-                      <p
-                        className={cn(
-                          "whitespace-pre-wrap text-sm",
-                          message.error && "text-red-700 dark:text-red-400"
-                        )}
-                      >
-                        {message.content}
-                      </p>
+                      {message.isPartial && !message.content ? (
+                        <LoadingDots />
+                      ) : (
+                        <>
+                          <p
+                            className={cn(
+                              "whitespace-pre-wrap text-sm",
+                              message.error && "text-red-700 dark:text-red-400"
+                            )}
+                          >
+                            {message.content}
+                          </p>
+                        </>
+                      )}
                       <p
                         className={cn(
                           "text-xs mt-1 opacity-70",
@@ -195,34 +186,6 @@ export default function ChatBot({
                 )}
               </div>
             ))}
-
-            {chatbot.isLoading && (
-              <div className="flex gap-3 justify-start">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <Card className="bg-gray-50 dark:bg-gray-700 py-0">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span
-                          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
-                          style={{ animationDelay: "0ms" }}
-                        ></span>
-                        <span
-                          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
-                          style={{ animationDelay: "150ms" }}
-                        ></span>
-                        <span
-                          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
-                          style={{ animationDelay: "300ms" }}
-                        ></span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -263,3 +226,24 @@ export default function ChatBot({
     </div>
   );
 }
+
+const LoadingDots = () => {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex gap-1">
+        <span
+          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+          style={{ animationDelay: "0ms" }}
+        ></span>
+        <span
+          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+          style={{ animationDelay: "150ms" }}
+        ></span>
+        <span
+          className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+          style={{ animationDelay: "300ms" }}
+        ></span>
+      </div>
+    </div>
+  );
+};
