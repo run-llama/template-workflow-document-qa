@@ -3,13 +3,13 @@ import { WorkflowEvent } from "@llamaindex/ui";
 export function createQueryConversationHistoryEvent(): WorkflowEvent {
   return {
     data: {},
-    type: "{{ project_name_snake }}.qa_workflows.QueryConversationHistoryEvent",
+    type: "document_qa.qa_workflows.QueryConversationHistoryEvent",
   };
 }
 
 export function createHumanResponseEvent(response: string): WorkflowEvent {
   return {
     data: { _data: { response } },
-    type: "{{ project_name_snake }}.qa_workflows.HumanResponseEvent",
+    type: "document_qa.qa_workflows.HumanResponseEvent",
   };
 }

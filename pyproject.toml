@@ -1,5 +1,5 @@
 [project]
-name = "{{ project_name }}"
+name = "document-qa"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -45,5 +45,5 @@ llama_cloud = true
 directory = "./ui"
 
 [tool.llamadeploy.workflows]
-upload = "{{ project_name_snake }}.qa_workflows:upload"
-chat = "{{ project_name_snake }}.qa_workflows:chat"
+upload = "document_qa.qa_workflows:upload"
+chat = "document_qa.qa_workflows:chat"
