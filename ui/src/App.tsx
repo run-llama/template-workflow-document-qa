@@ -1,4 +1,5 @@
-import { ApiProvider, Toaster } from "@llamaindex/ui";
+import { ApiProvider } from "@llamaindex/ui";
+import { Toaster } from "sonner";
 import Home from "./pages/Home";
 import { Theme } from "@radix-ui/themes";
 import { clients } from "@/libs/clients";
