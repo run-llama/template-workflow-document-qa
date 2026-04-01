@@ -65,13 +65,6 @@ Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
 class DocumentUploadWorkflow(Workflow):
     """Workflow to upload and index documents using LlamaParse and LlamaCloud Index"""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Get API key with validation
-
-        # Initialize LlamaParse with recommended settings
-        self.parser = get_llama_parse_client()
-
     @step(retry_policy=ConstantDelayRetryPolicy(maximum_attempts=3, delay=10))
     async def run_file(self, event: FileEvent, ctx: Context) -> DownloadFileEvent:
         logger.info(f"Running file {event.file_id}")
@@ -124,7 +117,7 @@ class DocumentUploadWorkflow(Workflow):
             # Parse the document
             if file_path:
                 # Parse from file path
-                result = await self.parser.aparse(file_path)
+                result = await get_llama_parse_client().aparse(file_path)
 
             # Get parsed documents
             documents = result.get_text_documents()
