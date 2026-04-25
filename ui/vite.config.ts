@@ -13,7 +13,7 @@ export default defineConfig(({}) => {
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   const serverPort = process.env.LLAMA_DEPLOY_SERVER_PORT;
   const baseUrl = process.env.LLAMA_CLOUD_BASE_URL;
-  const apiKey = process.env.LLAMA_CLOUD_API_KEY;
+  const apiKey = process.env.PUBLIC_LLAMA_CLOUD_API_KEY;
 
   return {
     plugins: [react()],
