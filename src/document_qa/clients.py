@@ -1,7 +1,7 @@
 import functools
 import os
-import httpx
 
+import httpx
 from llama_cloud.client import AsyncLlamaCloud
 from llama_cloud_services import LlamaCloudIndex, LlamaParse
 from llama_cloud_services.parse import ResultType
@@ -54,7 +54,7 @@ def get_llama_parse_client() -> LlamaParse:
     )
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_index(index_name: str) -> LlamaCloudIndex:
     """
     Retrieve an existing LlamaCloudIndex or create a new one if it doesn't exist.

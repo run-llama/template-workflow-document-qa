@@ -1,37 +1,37 @@
 from __future__ import annotations
-from datetime import datetime
+
+import asyncio
 import logging
 import os
 import tempfile
+from datetime import datetime
 from typing import Any, Literal
 
 import httpx
 from llama_index.core import Settings
+from llama_index.core.agent.workflow import AgentStream, FunctionAgent
 from llama_index.core.llms import ChatMessage
-import asyncio
+from llama_index.core.memory import ChatMemoryBuffer
+from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from pydantic import BaseModel, Field
-from workflows import Workflow, step, Context
+from workflows import Context, Workflow, step
 from workflows.events import (
+    Event,
+    HumanResponseEvent,
+    InputRequiredEvent,
     StartEvent,
     StopEvent,
-    Event,
-    InputRequiredEvent,
-    HumanResponseEvent,
 )
 from workflows.retry_policy import ConstantDelayRetryPolicy
-from llama_index.core.agent.workflow import FunctionAgent
-from llama_index.core.tools import QueryEngineTool, ToolMetadata
-from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.core.query_engine import RetrieverQueryEngine
-from llama_index.core.agent.workflow import AgentStream
 
 from .clients import (
+    LLAMA_CLOUD_PROJECT_ID,
     get_index,
     get_llama_cloud_client,
     get_llama_parse_client,
-    LLAMA_CLOUD_PROJECT_ID,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,16 +93,16 @@ class DocumentUploadWorkflow(Workflow):
             logger.info(f"Downloading file {file_url.url} to {file_path}")
 
             async with client.stream("GET", file_url.url) as response:
-                with open(file_path, "wb") as f:
+                with open(file_path, "wb") as f:  # noqa: ASYNC230
                     async for chunk in response.aiter_bytes():
                         f.write(chunk)
             logger.info(f"Downloaded file {file_url.url} to {file_path}")
             return FileDownloadedEvent(
                 file_id=event.file_id, file_path=file_path, filename=filename
             )
-        except Exception as e:
-            logger.error(f"Error downloading file {event.file_id}: {e}", exc_info=True)
-            raise e
+        except Exception:
+            logger.exception(f"Error downloading file {event.file_id}")
+            raise
 
     @step
     async def parse_document(self, ev: FileDownloadedEvent, ctx: Context) -> StopEvent:
@@ -142,7 +142,7 @@ class DocumentUploadWorkflow(Workflow):
             )
 
         except Exception as e:
-            logger.error(f"Error parsing document {ev.file_id}: {e}", exc_info=True)
+            logger.exception(f"Error parsing document {ev.file_id}")
             return StopEvent(result={"success": False, "error": str(e)})
 
 
@@ -160,8 +160,6 @@ class ChatDeltaEvent(Event):
 
 class QueryConversationHistoryEvent(HumanResponseEvent):
     """Client can call this to trigger replaying AppendChatMessage events"""
-
-    pass
 
 
 class ErrorEvent(Event):
@@ -255,9 +253,9 @@ class ChatWorkflow(Workflow):
                     state.conversation_history.extend(ev.conversation_history)
 
         except Exception as e:
-            logger.error(f"Error initializing chat: {str(e)}", exc_info=True)
+            logger.exception("Error initializing chat")
             ctx.write_event_to_stream(
-                ErrorEvent(error=f"Failed to initialize chat: {str(e)}")
+                ErrorEvent(error=f"Failed to initialize chat: {e!s}")
             )
         return InputRequiredEvent()
 
@@ -349,7 +347,7 @@ class ChatWorkflow(Workflow):
                 )
 
         except Exception as e:
-            logger.error(f"Error processing query: {str(e)}", exc_info=True)
+            logger.exception("Error processing query")
             ctx.write_event_to_stream(ErrorEvent(error=str(e)))
         return InputRequiredEvent()
 
