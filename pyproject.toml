@@ -9,8 +9,8 @@ dependencies = [
     "llama-index-workflows>=2.16.0,<3.0.0",
     "llama-cloud-services>=0.6.69",
     "llama-index-core>=0.14.0,<0.15.0",
-    "llama-index-llms-openai>=0.8.3,<0.9.0",
-    "llama-index-embeddings-openai>=0.7.0,<0.8.0",
+    "llama-index-llms-openai>=0.9.0,<0.10.0",
+    "llama-index-embeddings-openai>=0.8.0,<0.9.0",
     "python-dotenv>=1.1.1",
 ]
 
